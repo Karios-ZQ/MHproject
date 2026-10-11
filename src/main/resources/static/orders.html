@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的订单 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-sm:0 2px 10px rgba(43,6,14,.06); --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); min-height:100vh;
+            background:
+                radial-gradient(900px 600px at 88% -8%, rgba(200,37,69,0.18), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.14), transparent 55%),
+                linear-gradient(180deg, #fdf9f8 0%, #f6ece9 50%, #f1e3de 100%);
+            background-attachment:fixed;
+        }
+        ::selection { background:var(--red-600); color:#fff; }
+        a { text-decoration:none; color:inherit; }
+
+        .header {
+            position:sticky; top:0; z-index:900; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            padding:15px clamp(16px,4vw,40px); color:#fff;
+            background:linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom:1px solid rgba(240,212,138,.35); box-shadow:0 10px 34px rgba(42,6,14,.42);
+        }
+        .brand-name { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(18px,2.2vw,24px); letter-spacing:4px; font-weight:700; margin-right:28px; background:linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .header a.nav { color:rgba(255,244,235,.86); margin:0 15px; font-size:15px; letter-spacing:1px; position:relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .admin-link { color:var(--gold-light) !important; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-ghost { color:#fff; padding:8px 18px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); cursor:pointer; transition:.25s; }
+        .btn-ghost:hover { background:rgba(255,255,255,.2); }
+
+        .container { max-width: 1020px; margin: 30px auto; padding: 0 clamp(12px,3vw,20px); }
+        .page-title { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+        .page-title h2 { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(22px,3vw,28px); color:var(--red-800); letter-spacing:2px; }
+        .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
+        .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
+
+        .empty { background:rgba(255,255,255,.9); padding:70px; text-align:center; border-radius:20px; color:var(--ink-soft); border:1px dashed rgba(200,37,69,.3); }
+        .empty .big { font-size:52px; margin-bottom:14px; }
+
+        .order-card {
+            background:rgba(255,255,255,.94); backdrop-filter:blur(10px);
+            border:1px solid rgba(233,214,208,.8); border-radius:20px; padding:clamp(18px,3vw,24px);
+            margin-bottom:22px; box-shadow:var(--shadow-md);
+            transition:transform .35s var(--ease-spring), box-shadow .35s;
+            animation:riseIn .5s var(--ease-spring) both;
+        }
+        @keyframes riseIn { from{opacity:0; transform:translateY(24px)} to{opacity:1; transform:none} }
+        .order-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:rgba(212,175,55,.5); }
+        .order-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f2e0db; padding-bottom:14px; margin-bottom:16px; color:var(--ink-soft); font-size:14px; flex-wrap:wrap; gap:8px; }
+        .order-no { color:var(--ink); font-weight:600; letter-spacing:1px; }
+        .status-tag { font-weight:600; color:#fff; padding:4px 14px; border-radius:999px; font-size:12px; letter-spacing:1px; box-shadow:0 3px 8px rgba(0,0,0,.15); }
+
+        /* 订单状态进度条 */
+        .progress { display:flex; align-items:center; margin: 18px 0; }
+        .progress .step { display:flex; flex-direction:column; align-items:center; width:86px; position:relative; }
+        .progress .dot { width:28px; height:28px; border-radius:50%; background:#e5d8d3; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; z-index:1; transition:all .4s; border:2px solid #fff; box-shadow:0 0 0 2px #e5d8d3; }
+        .progress .dot.done { background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 0 0 2px var(--red-500), 0 4px 12px rgba(176,30,62,.35); }
+        .progress .dot.current { background:linear-gradient(135deg,#c98a2e,var(--gold)); box-shadow:0 0 0 2px var(--gold), 0 4px 14px rgba(212,175,55,.45); animation:currentPulse 2s infinite; }
+        @keyframes currentPulse { 0%,100%{box-shadow:0 0 0 2px var(--gold),0 4px 14px rgba(212,175,55,.4)} 50%{box-shadow:0 0 0 6px rgba(212,175,55,.2),0 4px 18px rgba(212,175,55,.55)} }
+        .step-label { font-size:11px; color:var(--ink-soft); margin-top:8px; white-space:nowrap; transition:color .3s; }
+        .step-label.active { color:var(--red-700); font-weight:700; }
+        .progress .line { flex:1; height:3px; background:#e5d8d3; margin:0 2px; border-radius:2px; overflow:hidden; }
+        .progress .line.done { background:linear-gradient(90deg,var(--red-700),var(--red-500)); }
+
+        .order-addr {
+            background:linear-gradient(120deg,var(--red-50),#fff); padding:12px 16px; border-radius:12px;
+            font-size:13px; color:#58474a; margin-bottom:14px; line-height:1.8;
+            border:1px solid var(--red-100); border-left:4px solid var(--gold);
+        }
+        .order-item { display:flex; justify-content:space-between; padding:9px 4px; font-size:14px; border-bottom:1px dashed #f3e5e0; }
+        .order-item:last-of-type { border-bottom:none; }
+        .order-item .nm { color:#58474a; }
+        .order-item .tt { color:var(--red-600); font-weight:600; }
+        .order-footer { display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f2e0db; padding-top:16px; margin-top:14px; flex-wrap:wrap; gap:10px; }
+        .order-footer .pay-amount { font-weight:800; color:var(--red-600); font-size:20px; }
+        .order-footer .pay-amount small { font-size:14px; color:var(--ink-soft); font-weight:400; }
+        .order-footer .btns { display:flex; gap:10px; flex-wrap:wrap; }
+        .btn { border:none; padding:10px 24px; border-radius:11px; cursor:pointer; font-size:14px; letter-spacing:1px; position:relative; overflow:hidden; transition:all .28s var(--ease-spring); }
+        .btn::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent); transform:skewX(-20deg); transition:left .5s ease; }
+        .btn:hover::after { left:130%; }
+        .btn-pay { background:linear-gradient(135deg,#c98a2e,var(--gold)); color:#4a2c08; box-shadow:0 6px 16px rgba(212,175,55,.35); }
+        .btn-pay:hover { transform:translateY(-2px); filter:brightness(1.06); }
+        .btn-cancel { background:#cfc0bb; color:#fff; }
+        .btn-cancel:hover { background:#bcaaa4; transform:translateY(-2px); }
+        .btn-refund, .btn-confirm { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; box-shadow:0 6px 16px rgba(176,30,62,.32); }
+        .btn-refund:hover, .btn-confirm:hover { transform:translateY(-2px); filter:brightness(1.08); }
+
+        /* 弹窗 */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(31,3,11,.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:18px; animation:fadeIn .25s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal-content { background:#fff; padding:26px; border-radius:20px; width:min(430px,94vw); box-shadow:var(--shadow-lg); border:1px solid rgba(240,212,138,.4); animation:modalUp .3s var(--ease-spring); }
+        @keyframes modalUp { from{opacity:0; transform:translateY(24px) scale(.97)} to{opacity:1; transform:none} }
+        .modal-content h3 { color:var(--red-800); letter-spacing:1px; margin-bottom:12px; }
+        .modal-content textarea { width:100%; padding:11px 13px; min-height:90px; margin-top:10px; border:1px solid #e7d2cc; border-radius:10px; font-family:inherit; font-size:14px; outline:none; resize:vertical; transition:border .2s,box-shadow .2s; }
+        .modal-content textarea:focus { border-color:var(--red-500); box-shadow:0 0 0 3px rgba(200,37,69,.12); }
+        .modal-actions { text-align:right; margin-top:16px; }
+        .modal-actions button { border:none; padding:10px 22px; border-radius:10px; cursor:pointer; font-size:14px; transition:.25s; }
+        .btn-cancel { background:#e4d8d3; color:#6b5258; }
+        .btn-cancel:hover { background:#d9c9c3; }
+        .btn-save { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; margin-left:10px; box-shadow:0 6px 16px rgba(176,30,62,.32); }
+        .btn-save:hover { filter:brightness(1.08); }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创</h2>
+            <a class="nav" href="index.html">首页</a>
+            <a class="nav" href="cart.html">购物车</a>
+            <a class="nav active" href="orders.html">我的订单</a>
+            <a v-if="currentUser && currentUser.role === 'ADMIN'" class="nav admin-link" href="admin_dashboard.html">管理后台</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip" v-if="currentUser">👤 {{ currentUser.username }}</span>
+            <button v-if="currentUser" @click="handleLogout" class="btn-ghost">退出登录</button>
+            <a v-else href="login.html" class="btn-ghost">登录 / 注册</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title"><span class="bar"></span><h2>我的订单</h2></div>
+        <div class="empty" v-if="orders.length === 0"><div class="big">📦</div>暂无订单</div>
+
+        <div class="order-card" v-for="(o, oi) in orders" :key="o.id" :style="{ animationDelay: (oi % 6) * 0.05 + 's' }">
+            <div class="order-header">
+                <span class="order-no">订单号：{{ o.orderNo }}</span>
+                <span class="status-tag" :style="{ background: statusColor(o.orderStatus) }">{{ getStatusText(o.orderStatus) }}</span>
+            </div>
+
+            <!-- 状态进度条（正常订单流程展示） -->
+            <div class="progress" v-if="o.orderStatus <= 3">
+                <div class="step" v-for="(s, idx) in progressSteps" :key="s">
+                    <div class="dot" :class="{ done: idx < stepIndex(o.orderStatus), current: idx === stepIndex(o.orderStatus) }">{{ idx + 1 }}</div>
+                    <div class="step-label" :class="{ active: idx <= stepIndex(o.orderStatus) }">{{ s }}</div>
+                    <div class="line" v-if="idx < progressSteps.length - 1" :class="{ done: idx < stepIndex(o.orderStatus) }"></div>
+                </div>
+            </div>
+
+            <div class="order-addr" v-if="o.receiverName">
+                📍 收货人：{{ o.receiverName }}　{{ o.receiverPhone }}<br>{{ o.receiverAddress }}
+            </div>
+
+            <div class="order-item" v-for="item in o.items" :key="item.id">
+                <span class="nm">{{ item.productName }} × {{ item.quantity }}</span>
+                <span class="tt">¥{{ item.totalPrice }}</span>
+            </div>
+            <div class="order-footer">
+                <span class="pay-amount"><small>实付：</small>¥{{ o.payAmount }}</span>
+                <div class="btns">
+                    <button v-if="o.orderStatus === 0" @click="payOrder(o.id)" class="btn btn-pay">立即支付</button>
+                    <button v-if="o.orderStatus === 0" @click="cancelOrder(o.id)" class="btn btn-cancel">取消订单</button>
+                    <button v-if="o.orderStatus === 2" @click="confirmReceipt(o.id)" class="btn btn-confirm">确认收货</button>
+                    <button v-if="o.orderStatus === 1 || o.orderStatus === 2" @click="openRefund(o.id)" class="btn btn-refund">申请退款</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 退款弹窗 -->
+    <div class="modal" v-if="showRefund">
+        <div class="modal-content">
+            <h3>申请退款</h3>
+            <textarea v-model="refundReason" placeholder="请输入退款原因"></textarea>
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showRefund = false">取消</button>
+                <button class="btn-save" @click="submitRefund">提交申请</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const orders = ref([]);
+            const currentUser = ref(null);
+            const showRefund = ref(false);
+            const refundReason = ref('');
+            const currentRefundOrderId = ref(null);
+            const progressSteps = ['下单', '付款', '发货', '收货'];
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const checkLogin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (res.data) currentUser.value = res.data;
+                } catch (e) { /* 未登录 */ }
+            };
+
+            const loadOrders = async () => {
+                try {
+                    const res = await api.get('/order/list');
+                    orders.value = res.data;
+                } catch (e) {
+                    alert('请先登录！');
+                    window.location.href = 'login.html';
+                }
+            };
+
+            const stepIndex = (status) => {
+                return { 0: 0, 1: 1, 2: 2, 3: 3 }[status] ?? 0;
+            };
+
+            const payOrder = async (orderId) => {
+                await api.post(`/order/pay?orderId=${orderId}`); alert('支付成功'); loadOrders();
+            };
+
+            const cancelOrder = async (orderId) => {
+                if (!confirm('确定取消该订单？')) return;
+                await api.post(`/order/cancel?orderId=${orderId}`); alert('订单已取消'); loadOrders();
+            };
+
+            const confirmReceipt = async (orderId) => {
+                if (!confirm('确认已收到货？')) return;
+                await api.post(`/order/confirm?orderId=${orderId}`); alert('已确认收货，交易完成'); loadOrders();
+            };
+
+            const openRefund = (orderId) => {
+                currentRefundOrderId.value = orderId; refundReason.value = ''; showRefund.value = true;
+            };
+
+            const submitRefund = async () => {
+                if (!refundReason.value.trim()) { alert('请输入退款原因'); return; }
+                await api.post(`/refund/apply?orderId=${currentRefundOrderId.value}&reason=${encodeURIComponent(refundReason.value)}`);
+                alert('退款申请已提交'); showRefund.value = false; loadOrders();
+            };
+
+            const getStatusText = (status) => {
+                const map = {0:'待付款', 1:'已付款', 2:'已发货', 3:'已完成', 4:'已取消', 5:'退款中', 6:'已退款', 7:'退款驳回'};
+                return map[status] || '未知';
+            };
+
+            const statusColor = (status) => {
+                const map = {0:'#c98a2e', 1:'#c98a2e', 2:'#b01e3e', 3:'#6b0f20', 4:'#a08f8a', 5:'#c82545', 6:'#8f1530', 7:'#a08f8a'};
+                return map[status] || '#95a5a6';
+            };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                window.location.href = 'login.html';
+            };
+
+            onMounted(() => { checkLogin(); loadOrders(); });
+            return { orders, currentUser, showRefund, refundReason, openRefund, submitRefund, payOrder, cancelOrder, confirmReceipt, getStatusText, statusColor, progressSteps, stepIndex, handleLogout };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

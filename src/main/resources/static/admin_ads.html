@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告管理 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-sm:0 2px 10px rgba(43,6,14,.06); --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); min-height:100vh;
+            background:
+                radial-gradient(900px 600px at 90% -8%, rgba(200,37,69,0.16), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.12), transparent 55%),
+                linear-gradient(180deg, #fbf5f4 0%, #f4e9e6 50%, #efe1dc 100%);
+            background-attachment:fixed;
+        }
+        ::selection { background:var(--red-600); color:#fff; }
+        a { text-decoration:none; color:inherit; }
+
+        .header {
+            position:sticky; top:0; z-index:900; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            padding:15px clamp(16px,4vw,40px); color:#fff;
+            background:linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom:1px solid rgba(240,212,138,.35); box-shadow:0 10px 34px rgba(42,6,14,.42);
+        }
+        .brand-name { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(17px,2.2vw,23px); letter-spacing:3px; font-weight:700; margin-right:24px; background:linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .header a.nav { color:rgba(255,244,235,.86); margin:0 12px; font-size:14px; letter-spacing:1px; position:relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-ghost { color:#fff; padding:8px 16px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); cursor:pointer; transition:.25s; }
+        .btn-ghost:hover { background:rgba(255,255,255,.2); }
+
+        .container { max-width: 1240px; margin: 28px auto; padding: 0 clamp(12px,3vw,22px); }
+        .page-title { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+        .page-title h2 { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(22px,3vw,28px); color:var(--red-800); letter-spacing:2px; }
+        .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
+        .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
+        .page-sub { color:var(--ink-soft); font-size:14px; margin: 6px 0 20px; letter-spacing:1px; }
+
+        .card-panel { background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border:1px solid rgba(233,214,208,.8); border-radius:20px; padding:24px; box-shadow:var(--shadow-md); overflow-x:auto; }
+        .btn-add { color:#fff; border:none; padding:12px 26px; font-size:15px; letter-spacing:1px; border-radius:12px; cursor:pointer; margin-bottom:16px; position:relative; overflow:hidden; background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 8px 20px rgba(176,30,62,.32); transition:all .28s var(--ease-spring); }
+        .btn-add::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent); transform:skewX(-20deg); transition:left .55s ease; }
+        .btn-add:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .btn-add:hover::after { left:130%; }
+
+        table { width:100%; border-collapse:collapse; margin-top:8px; min-width:880px; text-align:center; }
+        th, td { border:1px solid #f2e3de; padding:13px 12px; text-align:center; font-size:13px; }
+        th { background:linear-gradient(120deg,var(--red-50),#fdf6f3); color:var(--red-800); font-weight:700; letter-spacing:1px; }
+        td { color:#58474a; }
+        tbody tr { transition:background .2s; }
+        tbody tr:hover { background:#fff8f6; }
+        img.ad-img { width:110px; height:56px; object-fit:cover; border-radius:8px; border:1px solid #eedad4; box-shadow:var(--shadow-sm); }
+        .ad-title { font-weight:600; color:var(--ink); }
+        .ad-desc { color:var(--ink-soft); font-size:12px; margin-top:2px; }
+        .status-on { color:#1f8f5c; font-weight:700; }
+        .status-off { color:var(--red-500); font-weight:700; }
+        .btn { border:none; padding:7px 15px; border-radius:9px; cursor:pointer; font-size:12px; letter-spacing:1px; color:#fff; position:relative; overflow:hidden; transition:all .25s var(--ease-spring); }
+        .btn::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent); transform:skewX(-20deg); transition:left .5s ease; }
+        .btn:hover::after { left:130%; }
+        .btn-edit { background:linear-gradient(135deg,#c98a2e,var(--gold)); color:#4a2c08; box-shadow:0 4px 10px rgba(212,175,55,.28); }
+        .btn-edit:hover { transform:translateY(-2px); filter:brightness(1.06); }
+        .btn-toggle { background:linear-gradient(135deg,#c98a2e,#d4af37); color:#4a2c08; }
+        .btn-toggle:hover { transform:translateY(-2px); filter:brightness(1.06); }
+        .btn-delete { background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 4px 10px rgba(176,30,62,.28); }
+        .btn-delete:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .btn-ai { background:linear-gradient(135deg,var(--red-700),var(--red-500)); }
+        .btn-ai:hover { transform:translateY(-2px); filter:brightness(1.08); }
+
+        /* 弹窗 */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(31,3,11,.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:18px; overflow-y:auto; animation:fadeIn .25s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal-content { background:#fff; padding:clamp(22px,3vw,28px); border-radius:20px; width:min(620px,94vw); max-height:90vh; overflow-y:auto; margin:20px auto; box-shadow:var(--shadow-lg); border:1px solid rgba(240,212,138,.4); animation:modalUp .3s var(--ease-spring); }
+        @keyframes modalUp { from{opacity:0; transform:translateY(26px) scale(.97)} to{opacity:1; transform:none} }
+        .modal-content h3 { color:var(--red-800); letter-spacing:1px; margin-bottom:16px; }
+        .form-group { margin-bottom:15px; }
+        .form-group label { display:block; margin-bottom:6px; font-weight:600; color:#58474a; font-size:14px; }
+        .form-group input, .form-group textarea, .form-group select { width:100%; padding:11px 13px; border:1px solid #e7d2cc; border-radius:10px; font-family:inherit; font-size:14px; outline:none; transition:border .2s,box-shadow .2s; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--red-500); box-shadow:0 0 0 3px rgba(200,37,69,.12); }
+        .form-group textarea { resize:vertical; min-height:60px; }
+
+        .ai-toolbar { background:linear-gradient(120deg,var(--red-50),#fff); padding:14px; border-radius:12px; margin-bottom:16px; border:1px solid var(--red-100); border-left:4px solid var(--gold); }
+        .ai-toolbar .t { font-weight:700; color:var(--red-700); margin-bottom:9px; letter-spacing:1px; }
+        .ai-toolbar .btn { margin-right:8px; margin-bottom:4px; }
+
+        .ai-result-card { border:1px solid #f0dcd4; border-radius:12px; padding:15px; margin:10px 0; background:linear-gradient(120deg,#fdfaf8,#fff); cursor:pointer; transition:all .25s var(--ease-spring); }
+        .ai-result-card:hover { border-color:var(--red-500); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+        .ai-result-card .title { font-weight:700; color:var(--red-800); margin-bottom:5px; }
+        .ai-result-card .desc { color:#6b5a53; font-size:14px; }
+
+        .ai-loading { text-align:center; padding:20px; color:var(--red-700); }
+        .spinner { border:3px solid #f2e3de; border-top-color:var(--red-600); border-radius:50%; width:32px; height:32px; animation:spin 1s linear infinite; margin:0 auto 10px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        .tag-info { display:inline-block; background:var(--red-50); color:var(--red-700); font-size:12px; padding:2px 10px; border-radius:999px; margin-bottom:5px; border:1px solid var(--red-100); }
+        .success-msg { color:#1f8f5c; font-weight:700; margin-bottom:8px; }
+        .modal-actions { text-align:right; margin-top:20px; }
+        .modal-actions button { border:none; padding:11px 24px; border-radius:10px; cursor:pointer; font-size:14px; transition:.25s; }
+        .btn-cancel { background:#e4d8d3; color:#6b5258; }
+        .btn-cancel:hover { background:#d9c9c3; }
+        .btn-save { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; margin-left:10px; box-shadow:0 6px 16px rgba(176,30,62,.32); }
+        .btn-save:hover { filter:brightness(1.08); transform:translateY(-1px); }
+        .btn-save:disabled { opacity:.6; cursor:not-allowed; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创 · 管理后台</h2>
+            <a class="nav" href="index.html">返回首页</a>
+            <a class="nav" href="admin_dashboard.html">数据看板</a>
+            <a class="nav" href="admin_orders.html">订单管理</a>
+            <a class="nav" href="admin_refunds.html">退款审核</a>
+            <a class="nav" href="admin_products.html">商品管理</a>
+            <a class="nav active" href="admin_ads.html">广告管理</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip">👤 管理员：{{ currentUser ? currentUser.username : '' }}</span>
+            <button v-if="currentUser" @click="handleLogout" class="btn-ghost">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title"><span class="bar"></span><h2>轮播广告管理</h2></div>
+        <div class="page-sub">AI 智能助手可为你生成文案、安全检测与润色。</div>
+
+        <div class="card-panel">
+            <button class="btn-add" @click="openAddModal">+ 新增广告</button>
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th><th>广告图片</th><th>标题 / 描述</th><th>跳转链接</th><th>排序</th><th>状态</th><th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="ad in ads" :key="ad.id">
+                    <td>{{ ad.id }}</td>
+                    <td><img class="ad-img" :src="ad.imageUrl" alt="广告"></td>
+                    <td>
+                        <div class="ad-title">{{ ad.title }}</div>
+                        <div class="ad-desc">{{ ad.description }}</div>
+                    </td>
+                    <td style="font-size:12px;">{{ ad.linkUrl }}</td>
+                    <td>{{ ad.sortOrder }}</td>
+                    <td>
+                        <span :class="ad.status === 1 ? 'status-on' : 'status-off'">
+                            {{ ad.status === 1 ? '启用中' : '已禁用' }}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-edit" @click="openEditModal(ad)">编辑</button>
+                        <button class="btn btn-toggle" @click="toggleAd(ad.id)">{{ ad.status === 1 ? '禁用' : '启用' }}</button>
+                        <button class="btn btn-delete" @click="deleteAd(ad.id)">删除</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============ 新增/编辑广告弹窗 ============ -->
+    <div class="modal" v-if="showModal">
+        <div class="modal-content">
+            <h3>{{ form.id ? '编辑广告' : '新增广告' }}</h3>
+
+            <div class="ai-toolbar">
+                <div class="t">🤖 AI 智能助手</div>
+                <button class="btn btn-ai" @click="showAiGenerateModal = true">✨ AI 生成文案</button>
+                <button class="btn btn-ai" @click="doSafetyCheck" :disabled="aiLoading.check">🛡️ AI 安全检测</button>
+                <button class="btn btn-ai" @click="doPolish" :disabled="aiLoading.polish">📝 AI 润色描述</button>
+            </div>
+
+            <div class="form-group">
+                <label>广告标题</label>
+                <input v-model="form.title" placeholder="请输入标题">
+            </div>
+            <div class="form-group">
+                <label>广告描述（副标题）</label>
+                <textarea v-model="form.description" placeholder="请输入广告简要描述"></textarea>
+            </div>
+            <div class="form-group">
+                <label>图片URL</label>
+                <input v-model="form.imageUrl" placeholder="请输入图片链接">
+            </div>
+            <div class="form-group">
+                <label>跳转链接</label>
+                <input v-model="form.linkUrl" placeholder="如: /products?type=1">
+            </div>
+            <div class="form-group">
+                <label>排序权重（越大越靠前）</label>
+                <input type="number" v-model="form.sortOrder">
+            </div>
+            <div class="form-group">
+                <label>状态</label>
+                <select v-model="form.status">
+                    <option :value="1">启用</option>
+                    <option :value="0">禁用</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showModal = false">取消</button>
+                <button class="btn-save" @click="saveAd">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ AI 生成文案弹窗 ============ -->
+    <div class="modal" v-if="showAiGenerateModal">
+        <div class="modal-content">
+            <h3>✨ AI 生成广告文案</h3>
+            <div class="form-group">
+                <label>广告主题</label>
+                <input v-model="aiGenerateForm.theme" placeholder="例如：夏季水杯促销活动">
+            </div>
+            <div class="form-group">
+                <label>文案风格</label>
+                <select v-model="aiGenerateForm.style">
+                    <option value="简洁">简洁</option>
+                    <option value="活泼">活泼</option>
+                    <option value="正式">正式</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>字数要求</label>
+                <select v-model="aiGenerateForm.length">
+                    <option value="极简">极简（10字以内）</option>
+                    <option value="标准">标准（20字左右）</option>
+                    <option value="详细">详细（30字左右）</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showAiGenerateModal = false">取消</button>
+                <button class="btn-save" @click="doAiGenerate" :disabled="aiLoading.generate">
+                    {{ aiLoading.generate ? '生成中...' : '开始生成' }}
+                </button>
+            </div>
+
+            <div v-if="aiLoading.generate" class="ai-loading">
+                <div class="spinner"></div>
+                <div>AI 正在为你创作文案，请稍候...</div>
+            </div>
+
+            <div v-if="aiResults.length > 0 && !aiLoading.generate">
+                <p class="success-msg">✅ 已生成 {{ aiResults.length }} 组方案，点击任意一组即可填充到表单：</p>
+                <div v-for="(item, idx) in aiResults" :key="idx" class="ai-result-card" @click="pickAiResult(item)">
+                    <span class="tag-info">方案 {{ idx + 1 }}</span>
+                    <div class="title">{{ item.title }}</div>
+                    <div class="desc">{{ item.desc }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    // 清理 AI 返回中可能夹带的 markdown 代码块标记
+    const cleanJSON = (str) => {
+        if (!str) return str;
+        return str.replace(/```json/g, '').replace(/```/g, '').trim();
+    };
+
+    createApp({
+        setup() {
+            const ads = ref([]);
+            const currentUser = ref(null);
+            const showModal = ref(false);
+            const showAiGenerateModal = ref(false);
+            const form = ref({ id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1 });
+
+            const aiGenerateForm = ref({ theme: '', style: '简洁', length: '标准' });
+            const aiResults = ref([]);
+            const aiLoading = ref({ generate: false, check: false, polish: false });
+
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            // ================ 权限校验 ================
+            const checkAdmin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (!res.data || res.data.role !== 'ADMIN') {
+                        alert('无权访问，请以管理员身份登录！');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    currentUser.value = res.data;
+                    loadAds();
+                } catch (e) {
+                    alert('请先登录！');
+                    window.location.href = 'login.html';
+                }
+            };
+
+            const loadAds = async () => {
+                try {
+                    const res = await api.get('/admin/ads/list');
+                    ads.value = res.data;
+                } catch (e) { alert('加载广告失败: ' + (e.response?.data?.message || e.message)); }
+            };
+
+            // ================ CRUD 操作 ================
+            const openAddModal = () => {
+                form.value = { id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1 };
+                showModal.value = true;
+            };
+
+            const openEditModal = (ad) => {
+                form.value = { ...ad };
+                showModal.value = true;
+            };
+
+            const saveAd = async () => {
+                if (!form.value.title || !form.value.imageUrl) { alert('请填写标题和图片链接'); return; }
+                await api.post('/admin/ads/save', form.value);
+                alert('保存成功');
+                showModal.value = false;
+                loadAds();
+            };
+
+            const toggleAd = async (id) => {
+                await api.post(`/admin/ads/toggle?id=${id}`);
+                loadAds();
+            };
+
+            const deleteAd = async (id) => {
+                if (!confirm('确定要删除这条广告吗？')) return;
+                await api.post(`/admin/ads/delete?id=${id}`);
+                loadAds();
+            };
+
+            // ================ AI 功能1：生成文案 ================
+            const doAiGenerate = async () => {
+                if (!aiGenerateForm.value.theme.trim()) { alert('请输入广告主题'); return; }
+                aiLoading.value.generate = true;
+                aiResults.value = [];
+                try {
+                    const res = await api.post(`/ai/ad/generate?theme=${encodeURIComponent(aiGenerateForm.value.theme)}&style=${encodeURIComponent(aiGenerateForm.value.style)}&length=${encodeURIComponent(aiGenerateForm.value.length)}`);
+                    const cleaned = cleanJSON(res.data);
+                    aiResults.value = JSON.parse(cleaned);
+                } catch (e) {
+                    alert('AI 生成失败，请检查 API Key 配置: ' + e.message);
+                } finally {
+                    aiLoading.value.generate = false;
+                }
+            };
+
+            const pickAiResult = (item) => {
+                form.value.title = item.title;
+                form.value.description = item.desc;
+                showAiGenerateModal.value = false;
+                alert('已填充到表单，可继续修改后保存');
+            };
+
+            // ================ AI 功能2：内容安全检测 ================
+            const doSafetyCheck = async () => {
+                if (!form.value.title && !form.value.description) {
+                    alert('请先填写标题或描述'); return;
+                }
+                aiLoading.value.check = true;
+                const adText = `标题：${form.value.title}\n描述：${form.value.description}`;
+                try {
+                    const res = await api.post(`/ai/ad/check?adText=${encodeURIComponent(adText)}`);
+                    const cleaned = cleanJSON(res.data);
+                    const result = JSON.parse(cleaned);
+                    if (result.isRisk) {
+                        alert(`⚠️ 检测到风险！\n风险类型：${result.riskType}\n修改建议：${result.suggest}\n\n（提示：AI 仅为辅助提醒，你可以选择继续提交）`);
+                    } else {
+                        alert('✅ 内容合规，未检测到违规内容。');
+                    }
+                } catch (e) {
+                    alert('AI 检测失败: ' + e.message);
+                } finally {
+                    aiLoading.value.check = false;
+                }
+            };
+
+            // ================ AI 功能3：文案润色 ================
+            const doPolish = async () => {
+                if (!form.value.description) {
+                    alert('请先填写描述内容'); return;
+                }
+                aiLoading.value.polish = true;
+                try {
+                    const res = await api.post(`/ai/ad/polish?adText=${encodeURIComponent(form.value.description)}`);
+                    if (confirm(`AI 润色结果：\n\n${res.data}\n\n是否替换原描述？`)) {
+                        form.value.description = res.data;
+                    }
+                } catch (e) {
+                    alert('AI 润色失败: ' + e.message);
+                } finally {
+                    aiLoading.value.polish = false;
+                }
+            };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                window.location.href = 'login.html';
+            };
+
+            onMounted(checkAdmin);
+
+            return {
+                ads, currentUser, showModal, form,
+                showAiGenerateModal, aiGenerateForm, aiResults, aiLoading,
+                openAddModal, openEditModal, saveAd, toggleAd, deleteAd,
+                doAiGenerate, pickAiResult, doSafetyCheck, doPolish, handleLogout
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

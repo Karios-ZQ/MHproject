@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>退款审核 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-sm:0 2px 10px rgba(43,6,14,.06); --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); min-height:100vh;
+            background:
+                radial-gradient(900px 600px at 90% -8%, rgba(200,37,69,0.16), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.12), transparent 55%),
+                linear-gradient(180deg, #fbf5f4 0%, #f4e9e6 50%, #efe1dc 100%);
+            background-attachment:fixed;
+        }
+        ::selection { background:var(--red-600); color:#fff; }
+        a { text-decoration:none; color:inherit; }
+
+        .header {
+            position:sticky; top:0; z-index:900; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            padding:15px clamp(16px,4vw,40px); color:#fff;
+            background:linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom:1px solid rgba(240,212,138,.35); box-shadow:0 10px 34px rgba(42,6,14,.42);
+        }
+        .brand-name { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(17px,2.2vw,23px); letter-spacing:3px; font-weight:700; margin-right:24px; background:linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .header a.nav { color:rgba(255,244,235,.86); margin:0 12px; font-size:14px; letter-spacing:1px; position:relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-ghost { color:#fff; padding:8px 16px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); cursor:pointer; transition:.25s; }
+        .btn-ghost:hover { background:rgba(255,255,255,.2); }
+
+        .container { max-width: 1240px; margin: 28px auto; padding: 0 clamp(12px,3vw,22px); }
+        .page-title { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+        .page-title h2 { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(22px,3vw,28px); color:var(--red-800); letter-spacing:2px; }
+        .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
+        .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
+
+        .card { background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border:1px solid rgba(233,214,208,.8); border-radius:20px; padding:22px; box-shadow:var(--shadow-md); overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; margin-top:8px; min-width:820px; }
+        th, td { border:1px solid #f2e3de; padding:12px 14px; text-align:left; font-size:13px; }
+        th { background:linear-gradient(120deg,var(--red-50),#fdf6f3); color:var(--red-800); font-weight:700; letter-spacing:1px; }
+        td { color:#58474a; }
+        tbody tr { transition:background .2s; }
+        tbody tr:hover { background:#fff8f6; }
+        .pay { color:var(--red-600); font-weight:700; }
+        .reason { color:#58474a; max-width:260px; line-height:1.6; }
+        .status-tag { display:inline-block; padding:3px 13px; border-radius:999px; font-size:12px; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.14); }
+        .badge-pending { display:inline-block; background:linear-gradient(135deg,#fdeec8,#fbe6a9); color:#7d5f13; padding:3px 13px; border-radius:999px; font-size:12px; font-weight:600; }
+        .btn { border:none; padding:8px 18px; border-radius:10px; cursor:pointer; color:#fff; font-size:13px; letter-spacing:1px; position:relative; overflow:hidden; transition:all .28s var(--ease-spring); }
+        .btn::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent); transform:skewX(-20deg); transition:left .5s ease; }
+        .btn:hover::after { left:130%; }
+        .btn-approve { background:linear-gradient(135deg,#1f8f5c,#27ae60); box-shadow:0 5px 14px rgba(31,143,92,.3); }
+        .btn-approve:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .btn-reject { background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 5px 14px rgba(176,30,62,.3); }
+        .btn-reject:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .empty { text-align:center; padding:40px; color:var(--ink-soft); }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创 · 管理后台</h2>
+            <a class="nav" href="index.html">返回首页</a>
+            <a class="nav" href="admin_dashboard.html">数据看板</a>
+            <a class="nav" href="admin_orders.html">订单管理</a>
+            <a class="nav active" href="admin_refunds.html">退款审核</a>
+            <a class="nav" href="admin_products.html">商品管理</a>
+            <a class="nav" href="admin_ads.html">广告管理</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip">👤 {{ currentUser ? currentUser.username : '' }}</span>
+            <button @click="handleLogout" class="btn-ghost">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title"><span class="bar"></span><h2>退款审核</h2></div>
+        <div class="card">
+            <table v-if="refunds.length > 0">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>订单ID</th><th>退款金额</th><th>退款原因</th><th>申请时间</th><th>状态</th><th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="r in refunds" :key="r.id">
+                        <td>{{ r.id }}</td>
+                        <td>{{ r.orderId }}</td>
+                        <td class="pay">¥{{ r.refundAmount }}</td>
+                        <td class="reason">{{ r.refundReason }}</td>
+                        <td style="font-size:12px; color:#a08f8a;">{{ formatTime(r.createTime) }}</td>
+                        <td>
+                            <span v-if="r.refundStatus === 0" class="badge-pending">待审核</span>
+                            <span v-else class="status-tag" :style="{ background: r.refundStatus === 1 ? '#27ae60' : '#a08f8a' }">{{ r.refundStatus === 1 ? '已通过' : '已驳回' }}</span>
+                        </td>
+                        <td>
+                            <template v-if="r.refundStatus === 0">
+                                <button class="btn btn-approve" @click="approve(r.id)">同意退款</button>
+                                <button class="btn btn-reject" @click="reject(r.id)">驳回</button>
+                            </template>
+                            <span v-else style="color:#c7b8b3; font-size:12px;">已处理</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="empty" v-else>暂无退款申请</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const currentUser = ref(null);
+            const refunds = ref([]);
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const checkAdmin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (!res.data || res.data.role !== 'ADMIN') {
+                        alert('无权访问，请以管理员身份登录！');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    currentUser.value = res.data;
+                    loadRefunds();
+                } catch (e) {
+                    alert('请先登录！');
+                    window.location.href = 'login.html';
+                }
+            };
+
+            const loadRefunds = async () => {
+                try {
+                    const res = await api.get('/admin/refunds/list');
+                    refunds.value = res.data;
+                } catch (e) { alert('加载失败: ' + (e.response?.data?.message || e.message)); }
+            };
+
+            const approve = async (id) => {
+                if (!confirm('确认同意该退款？')) return;
+                await api.post(`/admin/refunds/approve?refundId=${id}`);
+                alert('已同意退款'); loadRefunds();
+            };
+            const reject = async (id) => {
+                if (!confirm('确认驳回该退款？')) return;
+                await api.post(`/admin/refunds/reject?refundId=${id}`);
+                alert('已驳回退款'); loadRefunds();
+            };
+
+            const formatTime = (t) => { return t ? String(t).replace('T', ' ').substring(0, 19) : ''; };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                window.location.href = 'login.html';
+            };
+
+            onMounted(checkAdmin);
+            return { currentUser, refunds, approve, reject, formatTime, handleLogout };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

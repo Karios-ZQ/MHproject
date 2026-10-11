@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品详情 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "PingFang SC","Microsoft YaHei",sans-serif; color: var(--ink); min-height: 100vh;
+            background:
+                radial-gradient(900px 600px at 88% -8%, rgba(200,37,69,0.18), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.14), transparent 55%),
+                linear-gradient(180deg, #fdf9f8 0%, #f6ece9 50%, #f1e3de 100%);
+            background-attachment: fixed;
+        }
+        ::selection { background: var(--red-600); color: #fff; }
+        a { text-decoration: none; color: inherit; }
+
+        .header {
+            position: sticky; top: 0; z-index: 900;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+            padding: 15px clamp(16px, 4vw, 40px); color: #fff;
+            background: linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom: 1px solid rgba(240,212,138,0.35);
+            box-shadow: 0 10px 34px rgba(42,6,14,0.42);
+        }
+        .brand-name {
+            font-family: "Noto Serif SC","STSong",serif; font-size: clamp(18px,2.2vw,24px);
+            letter-spacing: 4px; font-weight: 700; margin-right: 28px;
+            background: linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent;
+        }
+        .header a.nav { color: rgba(255,244,235,.86); margin: 0 15px; font-size: 15px; letter-spacing:1px; position: relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .admin-link { color: var(--gold-light) !important; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-glow { color:#fff; border-radius:12px; letter-spacing:1px; background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 8px 22px rgba(176,30,62,.35); position:relative; overflow:hidden; transition:all .28s var(--ease-spring); }
+        .btn-glow:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .btn-ghost { color:#fff; padding:8px 18px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); }
+
+        .container { max-width: 1100px; margin: 30px auto; padding: 0 clamp(14px,3vw,22px); }
+        .back-link { display:inline-flex; align-items:center; gap:8px; margin: 8px 0 22px; color: var(--red-600); font-weight:600; letter-spacing:1px; transition: gap .25s; }
+        .back-link:hover { gap: 14px; }
+
+        .detail-card {
+            display: flex; gap: clamp(24px, 4vw, 46px); flex-wrap: wrap;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(14px);
+            border: 1px solid rgba(240,212,138,0.3);
+            border-radius: 26px; padding: clamp(20px,3vw,34px);
+            box-shadow: var(--shadow-lg);
+            animation: riseIn .6s var(--ease-spring) both;
+        }
+        @keyframes riseIn { from { opacity:0; transform: translateY(28px);} to { opacity:1; transform:none;} }
+        .detail-img { flex: 1; min-width: 300px; }
+        .detail-img .img-frame {
+            position: relative; border-radius: 18px; overflow: hidden;
+            border: 1px solid #eedad4; box-shadow: var(--shadow-md);
+        }
+        .detail-img img { width:100%; height: clamp(320px, 40vw, 440px); object-fit: cover; display:block; background:#f3e3de; }
+        .detail-img .img-frame::after {
+            content:''; position:absolute; inset:0; pointer-events:none;
+            background: linear-gradient(160deg, transparent 55%, rgba(42,6,14,.18));
+        }
+        .detail-info { flex: 1; min-width: 300px; }
+        .detail-info h1 {
+            font-family: "Noto Serif SC","STSong",serif; font-size: clamp(24px,3vw,30px);
+            color: var(--red-800); margin-bottom: 12px; letter-spacing: 1px;
+        }
+        .cat {
+            display:inline-block; font-size:12px; color:#fff; letter-spacing:1px;
+            background:linear-gradient(135deg,var(--red-700),var(--red-500));
+            padding:4px 16px; border-radius:999px; box-shadow:0 4px 12px rgba(176,30,62,.3);
+        }
+        .price-box {
+            display:flex; align-items:center; justify-content:space-between; gap:15px;
+            margin: 22px 0; padding: 20px 24px;
+            background: linear-gradient(120deg, var(--red-50), #fff);
+            border: 1px solid var(--red-100); border-radius: 16px;
+            border-left: 4px solid var(--gold);
+        }
+        .price-box .price-label { color: var(--ink-soft); font-size: 14px; }
+        .price { color: var(--red-600); font-weight: 800; font-size: clamp(30px,4vw,38px); letter-spacing: .5px; }
+        .price .price-num::before { content:'¥'; font-size: 20px; margin-right: 3px; }
+        .stock { color: var(--ink-soft); font-size: 14px; }
+        .stock i { font-style: normal; color: var(--red-600); font-weight: 700; }
+
+        .desc-box {
+            margin: 20px 0; padding: 18px 20px; color: #58474a; line-height: 1.85; font-size: 15px;
+            background: #fdf9f7; border-radius: 14px; border: 1px solid #f2e2dd;
+            position: relative; overflow: hidden;
+        }
+        .desc-box::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,var(--gold),var(--red-500)); }
+        .desc-box .label { font-weight: 700; color: var(--red-800); letter-spacing: 1px; }
+        .desc-box p { margin-top: 8px; }
+
+        .action-bar { display:flex; align-items:center; gap: 14px; margin-top: 26px; flex-wrap: wrap; }
+        .qty-box { display:flex; align-items:center; border:1px solid #e7d2cc; border-radius: 12px; overflow:hidden; background:#fff; box-shadow: var(--shadow-sm); }
+        .qty-box button { width:42px; height:46px; background:#fdf2f0; border:none; font-size:20px; cursor:pointer; color:var(--red-700); transition:.2s; }
+        .qty-box button:hover { background:#f7e0dc; }
+        .qty-box span { width:52px; text-align:center; font-size:17px; font-weight:600; }
+        .btn { color:#fff; border:none; padding: 14px 34px; border-radius: 12px; font-size:15px; font-weight:600; letter-spacing:2px; cursor:pointer; position:relative; overflow:hidden; transition:all .28s var(--ease-spring); }
+        .btn::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent); transform:skewX(-20deg); transition:left .55s ease; }
+        .btn:hover::after { left:130%; }
+        .btn-add { background:linear-gradient(135deg,#c98a2e,var(--gold)); color:#4a2c08; box-shadow:0 8px 22px rgba(212,175,55,.35); }
+        .btn-add:hover { transform:translateY(-2px); filter:brightness(1.06); }
+        .btn-buy { background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 8px 22px rgba(176,30,62,.38); }
+        .btn-buy:hover { transform:translateY(-2px); filter:brightness(1.08); }
+
+        .empty { text-align:center; padding: 90px; color: var(--ink-soft); background:rgba(255,255,255,.85); border-radius:20px; border:1px dashed rgba(200,37,69,.3); }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创</h2>
+            <a class="nav" href="index.html">首页</a>
+            <a class="nav" href="cart.html">购物车</a>
+            <a class="nav" href="orders.html">我的订单</a>
+            <a v-if="currentUser && currentUser.role === 'ADMIN'" class="nav admin-link" href="admin_dashboard.html">管理后台</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip" v-if="currentUser">👤 {{ currentUser.username }}</span>
+            <a v-else href="login.html" class="btn-glow" style="padding:9px 18px;">登录 / 注册</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="index.html" class="back-link">← 返回首页</a>
+
+        <div class="detail-card" v-if="product">
+            <div class="detail-img">
+                <div class="img-frame">
+                    <img :src="product.imageUrl || 'https://via.placeholder.com/500x500?text=No+Image'"
+                         :alt="product.name"
+                         @error="(e) => e.target.src = 'https://via.placeholder.com/500x500?text=No+Image'">
+                </div>
+            </div>
+            <div class="detail-info">
+                <h1>{{ product.name }}</h1>
+                <span class="cat" v-if="product.category">{{ product.category }}</span>
+                <div class="price-box">
+                    <div>
+                        <div class="price-label">售价</div>
+                        <div class="price"><span class="price-num">{{ product.price }}</span></div>
+                    </div>
+                    <div class="stock">库存 <i>{{ product.stock }}</i> 件</div>
+                </div>
+
+                <div class="desc-box" v-if="product.description">
+                    <span class="label">商品描述</span>
+                    <p>{{ product.description }}</p>
+                </div>
+                <div class="desc-box" v-else>
+                    <span class="label">商品描述</span>
+                    <p style="color:#a08f8a;">这款文创商品暂无详细描述，欢迎选购体验。</p>
+                </div>
+
+                <div class="action-bar">
+                    <div class="qty-box">
+                        <button @click="qty > 1 && qty--">−</button>
+                        <span>{{ qty }}</span>
+                        <button @click="qty++">+</button>
+                    </div>
+                    <button class="btn btn-add" @click="addToCart">🛒 加入购物车</button>
+                    <button class="btn btn-buy" @click="buyNow">⚡ 立即购买</button>
+                </div>
+            </div>
+        </div>
+        <div class="empty" v-else-if="!loading">商品不存在或已被下架</div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const product = ref(null);
+            const currentUser = ref(null);
+            const qty = ref(1);
+            const loading = ref(true);
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const productId = new URLSearchParams(window.location.search).get('id');
+
+            const loadProduct = async () => {
+                try {
+                    const res = await api.get(`/product/${productId}`);
+                    product.value = res.data;
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            const checkLogin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (res.data) currentUser.value = res.data;
+                } catch (e) { /* 未登录 */ }
+            };
+
+            const ensureLogin = () => {
+                if (!currentUser.value) { alert('请先登录！'); window.location.href = 'login.html'; return false; }
+                return true;
+            };
+
+            const addToCart = async () => {
+                if (!ensureLogin()) return;
+                try {
+                    await api.post(`/cart/add?productId=${product.value.id}&quantity=${qty.value}`);
+                    alert('已加入购物车');
+                } catch (e) { alert(e.response?.data?.message || '加入失败'); }
+            };
+
+            const buyNow = async () => {
+                if (!ensureLogin()) return;
+                try {
+                    await api.post(`/cart/add?productId=${product.value.id}&quantity=${qty.value}`);
+                    window.location.href = 'cart.html';
+                } catch (e) { alert(e.response?.data?.message || '操作失败'); }
+            };
+
+            onMounted(() => { checkLogin(); loadProduct(); });
+
+            return { product, currentUser, qty, loading, addToCart, buyNow };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

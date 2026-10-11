@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物语文创商城 · 首页</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        /* =========================================================
+           物语文创 · Crimson Prestige 高端红色设计系统
+           采用：CSS 自定义属性 / 动态光晕渐变 / 毛玻璃 / 流光按钮 /
+                 入场动画 / 3D 悬浮 / SVG 颗粒纹理 / 响应式 clamp
+        ========================================================= */
+        :root {
+            /* —— 红色主题设计令牌 —— */
+            --red-950: #2a060e;
+            --red-900: #4a0a18;
+            --red-800: #6b0f20;
+            --red-700: #8f1530;
+            --red-600: #b01e3e;
+            --red-500: #c82545;
+            --red-400: #d94a66;
+            --red-100: #fbe9ec;
+            --red-50: #fef4f6;
+
+            --gold: #d4af37;
+            --gold-light: #f0d48a;
+            --gold-soft: rgba(212,175,55,0.14);
+
+            --ink: #2c171b;
+            --ink-soft: #6b5258;
+            --paper: #fff;
+
+            /* 阴影 */
+            --shadow-sm: 0 2px 10px rgba(43,6,14,0.06);
+            --shadow-md: 0 12px 34px rgba(74,10,24,0.14);
+            --shadow-lg: 0 26px 60px rgba(74,10,24,0.24);
+            --glow-red: 0 10px 30px rgba(176,30,62,0.38);
+
+            --radius-lg: 22px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+
+            --font-serif: "Noto Serif SC","STSong","Songti SC","Source Han Serif SC",serif;
+            --font-sans: "PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif;
+
+            --ease-spring: cubic-bezier(.34,1.56,.64,1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            color: var(--ink);
+            min-height: 100vh;
+            background:
+                radial-gradient(900px 600px at 88% -8%, rgba(200,37,69,0.22), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.16), transparent 55%),
+                radial-gradient(1000px 700px at 50% 120%, rgba(111,15,32,0.14), transparent 60%),
+                linear-gradient(180deg, #fdf9f8 0%, #f7eeeb 48%, #f3e5e0 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* 颗粒纹理覆盖层（SVG feTurbulence）*/
+        body::after {
+            content:''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            opacity: .04; mix-blend-mode: multiply;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        ::selection { background: var(--red-600); color: #fff; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #f6ece9; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--red-500), var(--red-700)); border-radius: 8px; }
+
+        a { color: inherit; text-decoration: none; }
+
+        /* ===== 顶部导航：深红流光玻璃 ===== */
+        .header {
+            position: sticky; top: 0; z-index: 900;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+            padding: 16px clamp(16px, 4vw, 40px);
+            color: #fff;
+            background:
+                linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom: 1px solid rgba(240,212,138,0.35);
+            box-shadow: 0 10px 34px rgba(42,6,14,0.42);
+        }
+        .header::before {
+            content:''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(500px 120px at 12% -60%, rgba(255,255,255,0.16), transparent 70%);
+        }
+        .header .brand-name {
+            font-family: var(--font-serif);
+            font-size: clamp(19px, 2.4vw, 26px);
+            letter-spacing: 5px; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 12px;
+            background: linear-gradient(180deg, #fff 0%, #f0d48a 88%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+            position: relative;
+        }
+        .brand-name::after {
+            content:''; width: 1px; height: 22px;
+            background: linear-gradient(180deg, transparent, var(--gold-light), transparent);
+            margin-left: 8px;
+        }
+        .nav-links { display: flex; align-items: center; flex-wrap: wrap; }
+        .nav-links a {
+            color: rgba(255,244,235,0.86); margin: 0 16px; font-size: 15px; letter-spacing: 1px;
+            position: relative; padding: 6px 2px; transition: color .25s;
+        }
+        .nav-links a::after {
+            content:''; position: absolute; left: 0; bottom: 0; width: 0; height: 2px;
+            background: linear-gradient(90deg, var(--gold-light), var(--gold));
+            transition: width .3s var(--ease-spring);
+        }
+        .nav-links a:hover, .nav-links a.active { color: #ffd98a; }
+        .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+        .admin-badge { color: var(--gold-light) !important; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .user-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 14px; color: #fdeed2;
+            background: rgba(255,255,255,0.12); border: 1px solid rgba(240,212,138,0.3);
+            padding: 7px 14px; border-radius: 999px; backdrop-filter: blur(4px);
+        }
+        .user-chip .role { color: var(--gold-light); }
+
+        .btn { border: none; cursor: pointer; font-family: inherit; transition: all .28s var(--ease-spring); }
+        .btn-glow {
+            color: #fff; border-radius: 12px; letter-spacing: 1px; font-weight: 500;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            box-shadow: var(--glow-red);
+            position: relative; overflow: hidden;
+        }
+        /* 流光扫过效果 */
+        .btn-glow::after {
+            content:''; position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+            background: linear-gradient(105deg, transparent, rgba(255,255,255,0.42), transparent);
+            transform: skewX(-20deg); transition: left .55s ease;
+        }
+        .btn-glow:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 14px 36px rgba(176,30,62,0.5); }
+        .btn-glow:hover::after { left: 130%; }
+        .btn-glow:active { transform: translateY(0); }
+        .btn-ghost {
+            color: #fff; border-radius: 12px; padding: 8px 18px; letter-spacing: 1px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(240,212,138,0.35);
+            backdrop-filter: blur(4px);
+        }
+        .btn-ghost:hover { background: rgba(255,255,255,0.2); border-color: var(--gold-light); }
+
+        .container { max-width: 1240px; margin: 30px auto; padding: 0 clamp(14px, 3vw, 26px); position: relative; z-index: 1; }
+
+        /* ===== 轮播横幅：深红金纹大卡 ===== */
+        .banner {
+            position: relative; height: clamp(260px, 34vw, 400px);
+            border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 34px;
+            border: 1px solid rgba(212,175,55,0.35);
+            box-shadow: 0 22px 60px rgba(74,10,24,0.32);
+            background: linear-gradient(135deg, var(--red-900), var(--red-700));
+        }
+        .banner-track { display: flex; height: 100%; transition: transform .75s var(--ease-spring); }
+        .banner-slide { position: relative; min-width: 100%; height: 100%; }
+        .banner-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .banner-slide::after {
+            content:''; position: absolute; inset: 0;
+            background: linear-gradient(100deg, rgba(42,6,14,0.78) 0%, rgba(74,10,24,0.42) 40%, transparent 72%);
+        }
+        .banner-text { position: absolute; left: clamp(28px, 6vw, 72px); bottom: clamp(34px, 6vw, 66px); z-index: 2; max-width: 62%; animation: bannerIn .8s var(--ease-spring) both; }
+        @keyframes bannerIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        .banner-title {
+            font-family: var(--font-serif); font-weight: 700;
+            font-size: clamp(28px, 5vw, 46px); letter-spacing: 6px; line-height: 1.2; color: #fff;
+            text-shadow: 0 4px 18px rgba(0,0,0,0.5);
+        }
+        .banner-desc {
+            margin-top: 16px; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: 2px; color: var(--gold-light);
+            border-left: 3px solid var(--gold); padding-left: 14px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        .banner-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 46px; height: 46px; border-radius: 50%; cursor: pointer; z-index: 5;
+            background: rgba(255,255,255,0.14); color: #fff; font-size: 22px; line-height: 1;
+            border: 1px solid rgba(255,255,255,0.35); backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            transition: all .25s var(--ease-spring);
+        }
+        .banner-arrow:hover { background: linear-gradient(135deg, var(--gold), var(--red-500)); transform: translateY(-50%) scale(1.1); border-color: transparent; }
+        .banner-arrow.left { left: 20px; } .banner-arrow.right { right: 20px; }
+        .banner-dots { position: absolute; bottom: 22px; right: 30px; display: flex; gap: 8px; z-index: 5; }
+        .banner-dot { width: 9px; height: 9px; border-radius: 50%; border: none; cursor: pointer; padding: 0; background: rgba(255,255,255,0.5); transition: all .3s var(--ease-spring); }
+        .banner-dot.active { background: linear-gradient(90deg, var(--gold-light), var(--gold)); width: 26px; border-radius: 6px; transform: scale(1.1); }
+
+        /* ===== 工具栏：毛玻璃胶囊 ===== */
+        .toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.72); backdrop-filter: blur(16px) saturate(1.4);
+            border: 1px solid rgba(212,175,55,0.25);
+            border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 34px;
+            box-shadow: var(--shadow-md);
+        }
+        .search-box { display: flex; align-items: center; flex: 1; min-width: 240px; }
+        .search-box input {
+            flex: 1; padding: 13px 16px; font-size: 14px; font-family: inherit;
+            border: 1px solid #efdcd8; border-radius: 12px 0 0 12px; outline: none;
+            background: #fff; transition: border .25s, box-shadow .25s;
+        }
+        .search-box input:focus { border-color: var(--red-500); box-shadow: 0 0 0 3px rgba(200,37,69,0.12); }
+        .search-box button {
+            padding: 13px 24px; color: #fff; border: none; border-radius: 0 12px 12px 0;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            cursor: pointer; font-size: 14px; letter-spacing: 2px; position: relative; overflow: hidden;
+        }
+        .search-box button::after { content:''; position:absolute; inset:0; background: linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent); transform: translateX(-100%); transition: transform .5s ease; }
+        .search-box button:hover::after { transform: translateX(100%); }
+        .cat-chip {
+            padding: 8px 18px; border: 1px solid #e7d2cc; border-radius: 999px; cursor: pointer;
+            font-size: 13px; background: #fff; color: var(--ink-soft); transition: all .22s;
+        }
+        .cat-chip:hover { border-color: var(--red-500); color: var(--red-600); transform: translateY(-1px); }
+        .cat-chip.active {
+            background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff;
+            border-color: transparent; box-shadow: 0 6px 16px rgba(176,30,62,0.32);
+        }
+        select.sort-select {
+            padding: 12px 14px; font-size: 13px; font-family: inherit; color: var(--ink-soft);
+            border: 1px solid #e7d2cc; border-radius: 12px; background: #fff; outline: none; cursor: pointer;
+        }
+        select.sort-select:focus { border-color: var(--red-500); }
+
+        /* ===== 区块标题 ===== */
+        .section-title { display: flex; align-items: center; gap: 14px; margin: 16px 0 24px; }
+        .section-title h3 { font-family: var(--font-serif); font-size: clamp(21px, 2.6vw, 26px); color: var(--red-800); letter-spacing: 3px; }
+        .section-title .bar {
+            width: 32px; height: 3px; border-radius: 2px; position: relative;
+            background: linear-gradient(90deg, var(--gold), var(--red-500));
+        }
+        .section-title .bar::after { content:''; display: block; width: 9px; height: 3px; background: var(--gold); margin-top: 5px; }
+
+        /* ===== 商品卡片：3D 悬浮微交互 ===== */
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 26px; }
+        .product-card {
+            background: #fff; padding: 14px; border-radius: var(--radius-md); cursor: pointer;
+            box-shadow: var(--shadow-sm); border: 1px solid rgba(233,214,208,0.7);
+            overflow: hidden; position: relative; text-align: center;
+            transition: transform .4s var(--ease-spring), box-shadow .4s;
+            animation: riseIn .6s var(--ease-spring) both;
+        }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+        .product-card::before {
+            content:''; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 2;
+            background: linear-gradient(90deg, var(--gold), var(--red-500), var(--gold));
+            background-size: 200% 100%; opacity: 0; transition: opacity .35s;
+        }
+        .product-card:hover { transform: translateY(-12px) scale(1.015); box-shadow: var(--shadow-lg); }
+        .product-card:hover::before { opacity: 1; animation: shimmer 1.6s linear infinite; }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+        .product-card .img-wrap { overflow: hidden; border-radius: 12px; position: relative; }
+        .product-card img {
+            width: 100%; height: 200px; object-fit: cover; display: block; background: #f3e3de;
+            transition: transform .55s ease;
+        }
+        .product-card:hover img { transform: scale(1.08); }
+        .product-card .img-wrap::after {
+            content:''; position: absolute; inset: 0;
+            background: linear-gradient(160deg, transparent 55%, rgba(42,6,14,0.18));
+            pointer-events: none;
+        }
+        .product-card h3 { margin: 13px 0 7px; font-size: 15px; height: 42px; overflow: hidden; color: var(--ink); line-height: 1.5; }
+        .product-card .cat {
+            display: inline-block; font-size: 11px; color: var(--red-600);
+            background: var(--red-50); border: 1px solid var(--red-100);
+            padding: 3px 13px; border-radius: 999px; margin-bottom: 8px; letter-spacing: 1px;
+        }
+        .product-card .price-row { display: flex; justify-content: center; align-items: baseline; gap: 9px; margin-top: 6px; }
+        .product-card .price { color: var(--red-600); font-weight: 800; font-size: 22px; letter-spacing: .5px; }
+        .product-card .price::before { content:'¥'; font-size: 14px; margin-right: 2px; }
+        .product-card .stock { font-size: 11px; color: #a9968e; }
+        .product-card button {
+            width: 100%; margin-top: 13px; padding: 11px 16px; color: #fff;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            border: none; border-radius: 12px; cursor: pointer; letter-spacing: 2px; font-size: 14px;
+            box-shadow: 0 6px 16px rgba(176,30,62,0.26); position: relative; overflow: hidden;
+            transition: all .28s var(--ease-spring);
+        }
+        .product-card button::after { content:''; position: absolute; top:0; left:-80%; width:50%; height:100%; background: linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent); transform: skewX(-20deg); transition: left .55s ease; }
+        .product-card button:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 10px 22px rgba(176,30,62,0.4); }
+        .product-card button:hover::after { left: 130%; }
+
+        .empty {
+            text-align: center; padding: 70px 0; color: #a9968e; background: rgba(255,255,255,0.72);
+            border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+            border: 1px dashed rgba(200,37,69,0.3); backdrop-filter: blur(8px);
+        }
+
+        /* ===== AI 悬浮球：脉冲光晕 ===== */
+        .ai-ball {
+            position: fixed; bottom: 32px; right: 32px; width: 62px; height: 62px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; cursor: pointer; z-index: 999;
+            border: 1px solid rgba(240,212,138,0.5);
+            animation: pulse 2.6s infinite;
+            transition: transform .3s var(--ease-spring);
+        }
+        .ai-ball::before {
+            content:''; position: absolute; inset: -6px; border-radius: 50%;
+            border: 2px solid rgba(212,175,55,0.35); animation: ripple 2.6s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 8px 26px rgba(176,30,62,0.5); }
+            50% { box-shadow: 0 8px 44px rgba(212,175,55,0.72); }
+        }
+        @keyframes ripple { 0% { transform: scale(.85); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+        .ai-ball:hover { transform: scale(1.12) rotate(6deg); }
+        .ai-float {
+            position: fixed; bottom: 32px; right: 32px; width: 386px; z-index: 1000;
+            background: #fff; border-radius: var(--radius-md); overflow: hidden;
+            display: flex; flex-direction: column;
+            border: 1px solid rgba(233,214,208,0.7); box-shadow: var(--shadow-lg);
+            animation: slideUp .32s var(--ease-spring);
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+        .ai-header {
+            background: linear-gradient(120deg, var(--red-900), var(--red-700), var(--red-500));
+            color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+            font-weight: 600; letter-spacing: 1px; border-bottom: 1px solid rgba(240,212,138,0.4);
+        }
+        .ai-header .close-btn {
+            background: rgba(255,255,255,0.16); color: #fff; border: none; width: 26px; height: 26px;
+            border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; transition: .2s;
+        }
+        .ai-header .close-btn:hover { background: rgba(255,255,255,0.34); }
+        .ai-body { height: 310px; padding: 14px; overflow-y: auto; font-size: 13px; display: flex; flex-direction: column; gap: 10px; background: #fdf9f7; }
+        .msg-user { align-self: flex-end; background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff; padding: 9px 13px; border-radius: 14px 14px 0 14px; max-width: 80%; }
+        .msg-ai { align-self: flex-start; background: #fff; color: var(--ink); padding: 9px 13px; border-radius: 14px 14px 14px 0; max-width: 80%; box-shadow: var(--shadow-sm); border: 1px solid #f0ded9; }
+        .ai-input-area { display: flex; border-top: 1px solid #f0ded9; padding: 11px; background: #fff; }
+        .ai-input-area input { flex: 1; border: 1px solid #e7d2cc; padding: 9px 14px; border-radius: 999px; margin-right: 9px; outline: none; font-family: inherit; }
+        .ai-input-area input:focus { border-color: var(--red-500); }
+        .ai-input-area button { background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff; border: none; padding: 9px 20px; border-radius: 999px; cursor: pointer; }
+
+        @media (max-width: 640px) {
+            .ai-float { width: calc(100vw - 28px); right: 14px; left: 14px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- 顶部导航栏 -->
+    <div class="header">
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <h2 class="brand-name">物语文创</h2>
+            <nav class="nav-links">
+                <a href="index.html" class="active">首页</a>
+                <a href="cart.html">购物车</a>
+                <a href="orders.html">我的订单</a>
+                <a v-if="currentUser && currentUser.role === 'ADMIN'" href="admin_dashboard.html" class="admin-badge">管理后台</a>
+            </nav>
+        </div>
+        <div class="header-right">
+            <span class="user-chip" v-if="currentUser">👤 {{ currentUser.username }}<span v-if="currentUser.role === 'ADMIN'" class="role">· 管理员</span></span>
+            <button v-if="currentUser" @click="handleLogout" class="btn btn-ghost">退出登录</button>
+            <a v-else href="login.html" class="btn btn-glow" style="padding: 9px 20px;">登录 / 注册</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 轮播广告 -->
+        <div class="banner" v-if="ads.length > 0">
+            <div class="banner-track" :style="{ transform: 'translateX(-' + (bannerIndex * 100) + '%)' }">
+                <div class="banner-slide" v-for="(ad, i) in ads" :key="ad.id">
+                    <img :src="ad.imageUrl" :alt="ad.title" @error="handleImgError">
+                    <div class="banner-text">
+                        <div class="banner-title" v-if="ad.title">{{ ad.title }}</div>
+                        <div class="banner-desc" v-if="ad.description">{{ ad.description }}</div>
+                    </div>
+                </div>
+            </div>
+            <button class="banner-arrow left" @click="prevBanner" aria-label="上一张">‹</button>
+            <button class="banner-arrow right" @click="nextBanner" aria-label="下一张">›</button>
+            <div class="banner-dots">
+                <button class="banner-dot" :class="{ active: i === bannerIndex }"
+                        v-for="(ad, i) in ads" :key="'d' + ad.id" @click="goBanner(i)"></button>
+            </div>
+        </div>
+
+        <!-- 搜索 / 分类 / 排序工具栏 -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input v-model="keyword" placeholder="搜索商品名称..." @keyup.enter="loadProducts">
+                <button @click="loadProducts">搜索</button>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <span class="cat-chip" :class="{ active: !selectedCategory }" @click="selectCategory('')">全部</span>
+                <span class="cat-chip" v-for="c in categories" :key="c" :class="{ active: selectedCategory === c }" @click="selectCategory(c)">{{ c }}</span>
+            </div>
+            <select class="sort-select" v-model="sort" @change="loadProducts">
+                <option value="">默认排序</option>
+                <option value="newest">最新上架</option>
+                <option value="price_asc">价格从低到高</option>
+                <option value="price_desc">价格从高到低</option>
+            </select>
+        </div>
+
+        <!-- 商品列表 -->
+        <div class="section-title"><span class="bar"></span><h3>精选文创</h3></div>
+        <div class="product-grid" v-if="products.length > 0">
+            <div class="product-card" v-for="(p, idx) in products" :key="p.id" @click="goDetail(p.id)" :style="{ animationDelay: (idx % 8) * 0.05 + 's' }">
+                <div class="img-wrap">
+                    <img :src="p.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image'" :alt="p.name"
+                         @error="(e) => e.target.src = 'https://via.placeholder.com/400x400?text=No+Image'">
+                </div>
+                <span class="cat" v-if="p.category">{{ p.category }}</span>
+                <h3>{{ p.name }}</h3>
+                <div class="price-row">
+                    <span class="price">{{ p.price }}</span>
+                    <span class="stock">库存 {{ p.stock }}</span>
+                </div>
+                <button @click.stop="addToCart(p.id)">加入购物车</button>
+            </div>
+        </div>
+        <div class="empty" v-else>没有找到相关商品，换个关键词试试吧~</div>
+    </div>
+
+    <!-- AI 悬浮球 -->
+    <div class="ai-ball" v-if="!showAi" @click="showAi = true" title="AI 助手">🤖</div>
+    <div class="ai-float" v-if="showAi">
+        <div class="ai-header"><span>🤖 DeepSeek AI 助手</span><button class="close-btn" @click="showAi = false" title="收起">✕</button></div>
+        <div class="ai-body" id="aiBody">
+            <div class="msg-ai">你好！我是AI助手，可以帮你写广告语、解答售后问题。</div>
+            <div v-for="(msg, idx) in chatHistory" :key="idx" :class="msg.role === 'user' ? 'msg-user' : 'msg-ai'">{{ msg.content }}</div>
+        </div>
+        <div class="ai-input-area">
+            <input v-model="aiInput" @keyup.enter="sendAiMsg" placeholder="输入内容...">
+            <button @click="sendAiMsg">发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted, onUnmounted } = Vue;
+    createApp({
+        setup() {
+            const currentUser = ref(null);
+            const products = ref([]);
+            const ads = ref([]);
+            const categories = ref([]);
+            const keyword = ref('');
+            const selectedCategory = ref('');
+            const sort = ref('');
+            const aiInput = ref('');
+            const chatHistory = ref([]);
+            const showAi = ref(false);
+            const bannerIndex = ref(0);
+            let bannerTimer = null;
+
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const checkLogin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (res.data) currentUser.value = res.data;
+                } catch (e) { /* 未登录 */ }
+            };
+
+            const loadData = async () => {
+                try {
+                    const [resP, resA, resC] = await Promise.all([api.get('/products'), api.get('/ads'), api.get('/categories')]);
+                    products.value = resP.data;
+                    ads.value = resA.data;
+                    categories.value = resC.data;
+                    startBannerAutoPlay();
+                } catch (e) { console.error(e); }
+            };
+
+            const loadProducts = async () => {
+                try {
+                    const params = new URLSearchParams();
+                    if (keyword.value.trim()) params.append('keyword', keyword.value.trim());
+                    if (selectedCategory.value) params.append('category', selectedCategory.value);
+                    if (sort.value) params.append('sort', sort.value);
+                    const res = await api.get(`/products?${params.toString()}`);
+                    products.value = res.data;
+                } catch (e) { console.error(e); }
+            };
+
+            const selectCategory = (c) => { selectedCategory.value = c; loadProducts(); };
+
+            const goDetail = (id) => { window.location.href = `detail.html?id=${id}`; };
+
+            const addToCart = async (productId) => {
+                if (!currentUser.value) { alert('请先登录！'); window.location.href = 'login.html'; return; }
+                try {
+                    await api.post(`/cart/add?productId=${productId}&quantity=1`);
+                    alert('已加入购物车');
+                } catch (e) { alert(e.response?.data?.message || '加入失败'); }
+            };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                currentUser.value = null;
+                alert('已退出登录');
+                window.location.reload();
+            };
+
+            const handleImgError = (e) => { e.target.src = 'https://via.placeholder.com/1200x400?text=Banner+Image'; };
+
+            // ================ 轮播控制 ================
+            const goBanner = (i) => {
+                const n = ads.value.length;
+                bannerIndex.value = (i + n) % n;
+            };
+            const nextBanner = () => goBanner(bannerIndex.value + 1);
+            const prevBanner = () => goBanner(bannerIndex.value - 1);
+            const startBannerAutoPlay = () => {
+                stopBannerAutoPlay();
+                if (ads.value.length > 1) {
+                    bannerTimer = setInterval(() => { nextBanner(); }, 4000);
+                }
+            };
+            const stopBannerAutoPlay = () => { if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null; } };
+
+            const sendAiMsg = () => {
+                if (!aiInput.value.trim()) return;
+                const msg = aiInput.value;
+                chatHistory.value.push({ role: 'user', content: msg });
+                aiInput.value = '';
+                // 先放一个空的 AI 气泡，后面逐字填充
+                chatHistory.value.push({ role: 'ai', content: '' });
+                const aiIndex = chatHistory.value.length - 1;
+                setTimeout(() => { const el = document.getElementById('aiBody'); if(el) el.scrollTop = el.scrollHeight; }, 100);
+
+                // SSE 流式接收（打字机效果）
+                const es = new EventSource(`/api/ai/assistant/stream?message=${encodeURIComponent(msg)}`);
+                es.onmessage = (event) => {
+                    if (event.data === '[DONE]') {
+                        es.close();
+                        return;
+                    }
+                    chatHistory.value[aiIndex].content += event.data;
+                    setTimeout(() => { const el = document.getElementById('aiBody'); if(el) el.scrollTop = el.scrollHeight; }, 50);
+                };
+                es.onerror = () => {
+                    es.close();
+                    if (!chatHistory.value[aiIndex].content) {
+                        chatHistory.value[aiIndex].content = 'AI 助手暂时有点忙，请稍后再试～';
+                    }
+                };
+            };
+
+            onMounted(() => { checkLogin(); loadData(); });
+            onUnmounted(() => { stopBannerAutoPlay(); });
+
+            return { currentUser, products, ads, categories, keyword, selectedCategory, sort, aiInput, chatHistory, showAi, bannerIndex, addToCart, handleLogout, handleImgError, sendAiMsg, loadProducts, selectCategory, goDetail, goBanner, nextBanner, prevBanner };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

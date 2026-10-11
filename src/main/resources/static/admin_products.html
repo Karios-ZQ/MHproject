@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品管理 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-sm:0 2px 10px rgba(43,6,14,.06); --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); min-height:100vh;
+            background:
+                radial-gradient(900px 600px at 90% -8%, rgba(200,37,69,0.16), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.12), transparent 55%),
+                linear-gradient(180deg, #fbf5f4 0%, #f4e9e6 50%, #efe1dc 100%);
+            background-attachment:fixed;
+        }
+        ::selection { background:var(--red-600); color:#fff; }
+        a { text-decoration:none; color:inherit; }
+
+        .header {
+            position:sticky; top:0; z-index:900; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            padding:15px clamp(16px,4vw,40px); color:#fff;
+            background:linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom:1px solid rgba(240,212,138,.35); box-shadow:0 10px 34px rgba(42,6,14,.42);
+        }
+        .brand-name { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(17px,2.2vw,23px); letter-spacing:3px; font-weight:700; margin-right:24px; background:linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .header a.nav { color:rgba(255,244,235,.86); margin:0 12px; font-size:14px; letter-spacing:1px; position:relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-ghost { color:#fff; padding:8px 16px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); cursor:pointer; transition:.25s; }
+        .btn-ghost:hover { background:rgba(255,255,255,.2); }
+
+        .container { max-width: 1240px; margin: 28px auto; padding: 0 clamp(12px,3vw,22px); }
+        .page-title { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+        .page-title h2 { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(22px,3vw,28px); color:var(--red-800); letter-spacing:2px; }
+        .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
+        .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
+        .page-sub { color:var(--ink-soft); font-size:14px; margin: 6px 0 22px; letter-spacing:1px; }
+
+        .card-panel { background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border:1px solid rgba(233,214,208,.8); border-radius:20px; padding:24px; box-shadow:var(--shadow-md); }
+        .product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(272px,1fr)); gap:22px; margin-top:20px; }
+        .product-card {
+            background:#fff; padding:16px; border-radius:18px;
+            border:1px solid #f0e0db; box-shadow:var(--shadow-sm);
+            transition:transform .35s var(--ease-spring), box-shadow .35s, border-color .35s;
+            animation:riseIn .5s var(--ease-spring) both;
+        }
+        .product-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-6px); border-color:rgba(212,175,55,.55); }
+        .product-card .img-wrap { position:relative; overflow:hidden; border-radius:12px; }
+        .product-card img { width:100%; height:200px; object-fit:cover; display:block; background:#f3e3de; transition:transform .5s ease; }
+        .product-card:hover img { transform:scale(1.06); }
+        .product-card h3 { margin:12px 0 6px; font-size:16px; color:#4a3a35; }
+        .product-card .meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .product-card .price { color:var(--red-600); font-weight:800; font-size:19px; }
+        .product-card .price::before { content:'¥'; font-size:13px; margin-right:2px; }
+        .product-card .stock { color:var(--ink-soft); font-size:13px; }
+        .btn { border:none; padding:9px 18px; border-radius:10px; cursor:pointer; font-size:13px; letter-spacing:1px; position:relative; overflow:hidden; transition:all .28s var(--ease-spring); }
+        .btn::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent); transform:skewX(-20deg); transition:left .5s ease; }
+        .btn:hover::after { left:130%; }
+        .btn-edit { background:linear-gradient(135deg,#c98a2e,var(--gold)); color:#4a2c08; box-shadow:0 5px 14px rgba(212,175,55,.3); }
+        .btn-edit:hover { transform:translateY(-2px); filter:brightness(1.06); }
+
+        /* 弹窗 */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(31,3,11,.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:18px; animation:fadeIn .25s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal-content { background:#fff; padding:clamp(22px,3vw,28px); border-radius:20px; width:min(560px,94vw); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); border:1px solid rgba(240,212,138,.4); animation:modalUp .3s var(--ease-spring); }
+        @keyframes modalUp { from{opacity:0; transform:translateY(26px) scale(.97)} to{opacity:1; transform:none} }
+        .modal-content h3 { color:var(--red-800); letter-spacing:1px; margin-bottom:16px; }
+        .preview-img { width:100%; height:230px; object-fit:cover; border-radius:14px; background:#f3e3de; margin-top:10px; border:1px solid #eedad4; }
+        .tab-buttons { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; }
+        .tab-buttons button { padding:10px 20px; border:none; background:#fdf2f0; border:1px solid #f4ddd6; border-radius:11px; cursor:pointer; color:var(--red-700); font-weight:600; transition:.25s; }
+        .tab-buttons button.active { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; border-color:transparent; box-shadow:0 5px 14px rgba(176,30,62,.32); }
+        .form-group { margin-bottom:15px; }
+        .form-group label { display:block; margin-bottom:6px; font-weight:600; color:#58474a; font-size:14px; }
+        .form-group input, .form-group textarea, .form-group select { width:100%; padding:11px 13px; border:1px solid #e7d2cc; border-radius:10px; font-family:inherit; font-size:14px; outline:none; transition:border .2s,box-shadow .2s; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--red-500); box-shadow:0 0 0 3px rgba(200,37,69,.12); }
+        .form-group textarea { min-height:70px; resize:vertical; }
+        .btn-upload, .btn-ai { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; box-shadow:0 5px 14px rgba(176,30,62,.3); }
+        .btn-upload:hover, .btn-ai:hover { transform:translateY(-2px); filter:brightness(1.08); }
+        .ai-loading { text-align:center; padding:16px; color:var(--red-700); font-size:14px; }
+        .spinner { border:3px solid #f2e3de; border-top-color:var(--red-600); border-radius:50%; width:32px; height:32px; animation:spin 1s linear infinite; margin:0 auto 10px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .divider { border:none; border-top:1px dashed #ead8d2; margin:20px 0; }
+        .modal-actions { text-align:right; margin-top:20px; }
+        .modal-actions button { border:none; padding:11px 24px; border-radius:10px; cursor:pointer; font-size:14px; transition:.25s; }
+        .btn-cancel { background:#e4d8d3; color:#6b5258; }
+        .btn-cancel:hover { background:#d9c9c3; }
+        .btn-save { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; margin-left:10px; box-shadow:0 6px 16px rgba(176,30,62,.32); }
+        .btn-save:hover { filter:brightness(1.08); transform:translateY(-1px); }
+        @keyframes riseIn { from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:none} }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创 · 管理后台</h2>
+            <a class="nav" href="index.html">返回首页</a>
+            <a class="nav" href="admin_dashboard.html">数据看板</a>
+            <a class="nav" href="admin_orders.html">订单管理</a>
+            <a class="nav" href="admin_refunds.html">退款审核</a>
+            <a class="nav active" href="admin_products.html">商品管理</a>
+            <a class="nav" href="admin_ads.html">广告管理</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip">👤 管理员：{{ currentUser ? currentUser.username : '' }}</span>
+            <button v-if="currentUser" @click="handleLogout" class="btn-ghost">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title"><span class="bar"></span><h2>商品管理</h2></div>
+        <div class="page-sub">添加新商品 / 编辑商品信息 / 上下架控制</div>
+
+        <div class="card-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <h3 style="color:var(--red-800);">商品列表（{{ products.length }}）</h3>
+                <button class="btn btn-save" style="padding:10px 22px;" @click="openAdd">➕ 添加新商品</button>
+            </div>
+            <div class="product-grid">
+                <div class="product-card" v-for="(p, idx) in products" :key="p.id" :style="{ animationDelay: (idx % 6) * 0.05 + 's', opacity: p.status === 0 ? 0.55 : 1 }">
+                    <div class="img-wrap">
+                        <img :src="p.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image'" alt="商品图片">
+                        <span v-if="p.status === 0" style="position:absolute; top:8px; right:8px; background:#dc2626; color:#fff; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700;">已下架</span>
+                        <span v-else style="position:absolute; top:8px; right:8px; background:#16a34a; color:#fff; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700;">在售</span>
+                    </div>
+                    <h3>{{ p.name }}</h3>
+                    <div class="meta">
+                        <span class="price">{{ p.price }}</span>
+                        <span class="stock">库存：{{ p.stock }} 件</span>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                        <button class="btn btn-edit" @click="openEdit(p)">编辑</button>
+                        <button class="btn" :style="{ background: p.status === 1 ? '#fef2f2' : '#f0fdf4', color: p.status === 1 ? '#dc2626' : '#16a34a', border: '1px solid currentColor' }" @click="toggleStatus(p)">
+                            {{ p.status === 1 ? '下架' : '上架' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div class="modal" v-if="showEditModal">
+        <div class="modal-content">
+            <h3>{{ form.id ? '编辑商品：' + form.name : '添加新商品' }}</h3>
+
+            <div class="form-group">
+                <label>商品图片预览</label>
+                <img :src="form.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image'" class="preview-img" alt="预览">
+            </div>
+
+            <!-- 选项卡 -->
+            <div class="tab-buttons">
+                <button :class="{ active: activeTab === 'upload' }" @click="activeTab = 'upload'">📁 本地上传</button>
+                <button :class="{ active: activeTab === 'ai' }" @click="activeTab = 'ai'">✨ AI 生成</button>
+                <button :class="{ active: activeTab === 'url' }" @click="activeTab = 'url'">🔗 图片链接</button>
+            </div>
+
+            <!-- 本地上传 -->
+            <div v-if="activeTab === 'upload'">
+                <input type="file" ref="fileInput" accept="image/*" @change="handleFileSelect" style="width:100%;">
+                <button class="btn btn-upload" @click="uploadFile" style="margin-top:12px;">确认上传</button>
+                <div v-if="uploading" class="ai-loading"><div class="spinner"></div>上传中...</div>
+            </div>
+
+            <!-- AI 生成 -->
+            <div v-if="activeTab === 'ai'">
+                <div class="form-group">
+                    <label>画面描述（用中文描述商品，如：金色红色相间的中国龙手办摆件，国潮风格）</label>
+                    <input v-model="aiPrompt" placeholder="例如：金色红色相间的中国龙手办摆件，国潮风格">
+                </div>
+                <button class="btn btn-ai" @click="generateAiImage">✨ 生成图片</button>
+                <div v-if="generating" class="ai-loading">
+                    <div class="spinner"></div>
+                    <div>AI 正在绘制图片，约需 5-15 秒，请稍候...</div>
+                </div>
+            </div>
+
+            <!-- 图片链接 -->
+            <div v-if="activeTab === 'url'">
+                <div class="form-group">
+                    <label>图片 URL</label>
+                    <input v-model="form.imageUrl" placeholder="https://...">
+                </div>
+            </div>
+
+            <hr class="divider">
+            <div class="form-group">
+                <label>商品名称</label>
+                <input v-model="form.name">
+            </div>
+            <div class="form-group">
+                <label>商品分类</label>
+                <input v-model="form.category" placeholder="如：文创 / 文具 / 家居 / 数码">
+            </div>
+            <div class="form-group">
+                <label>价格</label>
+                <input type="number" v-model="form.price">
+            </div>
+            <div class="form-group">
+                <label>库存</label>
+                <input type="number" v-model="form.stock">
+            </div>
+            <div class="form-group">
+                <label>商品描述</label>
+                <textarea v-model="form.description" placeholder="商品详情介绍（可选）"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showEditModal = false">取消</button>
+                <button class="btn-save" @click="saveProduct">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const products = ref([]);
+            const currentUser = ref(null);
+            const showEditModal = ref(false);
+            const form = ref({});
+            const activeTab = ref('upload');
+            const aiPrompt = ref('');
+            const uploading = ref(false);
+            const generating = ref(false);
+            const fileInput = ref(null);
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const checkAdmin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (!res.data || res.data.role !== 'ADMIN') {
+                        alert('无权访问，请以管理员身份登录！');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    currentUser.value = res.data;
+                    loadProducts();
+                } catch (e) {
+                    alert('请先登录！');
+                    window.location.href = 'login.html';
+                }
+            };
+
+            const loadProducts = async () => {
+                try {
+                    const res = await api.get('/admin/products/list');
+                    products.value = res.data;
+                } catch (e) { alert('加载失败: ' + e.message); }
+            };
+
+            const openEdit = (p) => {
+                form.value = { ...p };
+                activeTab.value = 'upload';
+                aiPrompt.value = '';
+                showEditModal.value = true;
+            };
+
+            // 新建商品（空表单）
+            const openAdd = () => {
+                form.value = { name: '', category: '', price: 0, stock: 0, description: '', imageUrl: '', status: 1 };
+                activeTab.value = 'upload';
+                aiPrompt.value = '';
+                showEditModal.value = true;
+            };
+
+            // 上下架切换
+            const toggleStatus = async (p) => {
+                try {
+                    const res = await api.post(`/admin/products/toggleStatus?id=${p.id}`);
+                    alert(res.data);
+                    loadProducts();
+                } catch (e) {
+                    alert('操作失败: ' + (e.response?.data?.message || e.message));
+                }
+            };
+
+            // 本地上传
+            const handleFileSelect = (e) => {
+                // 用户选择文件时记录，不做其他操作
+            };
+
+            const uploadFile = async () => {
+                const file = fileInput.value?.files[0];
+                if (!file) { alert('请选择文件'); return; }
+                uploading.value = true;
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const res = await api.post('/upload/image', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    form.value.imageUrl = res.data;
+                    alert('上传成功！');
+                } catch (e) {
+                    alert('上传失败: ' + (e.response?.data?.message || e.message));
+                } finally {
+                    uploading.value = false;
+                }
+            };
+
+            // AI 生成图片（豆包 Seedream）
+            const generateAiImage = async () => {
+                if (!aiPrompt.value.trim()) { alert('请输入商品画面描述'); return; }
+                generating.value = true;
+                try {
+                    const res = await api.get(`/upload/ai-generate?prompt=${encodeURIComponent(aiPrompt.value)}`);
+                    // 后端未配置豆包 key 时会返回提示文本，直接展示，不填入图片
+                    if (typeof res.data === 'string' && res.data.startsWith('AI 生图')) {
+                        alert(res.data);
+                        return;
+                    }
+                    form.value.imageUrl = res.data;
+                    alert('✅ AI 图片已生成并保存到本地，可预览确认后再保存商品');
+                } catch (e) {
+                    alert('生成失败: ' + (e.response?.data?.message || e.message));
+                } finally {
+                    generating.value = false;
+                }
+            };
+
+            const saveProduct = async () => {
+                try {
+                    await api.post('/admin/products/save', form.value);
+                    alert('保存成功');
+                    showEditModal.value = false;
+                    loadProducts();
+                } catch (e) { alert('保存失败: ' + (e.response?.data?.message || e.message)); }
+            };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                window.location.href = 'login.html';
+            };
+
+            onMounted(checkAdmin);
+
+            return { products, currentUser, showEditModal, form, activeTab, aiPrompt,
+                uploading, generating, fileInput,
+                openEdit, openAdd, toggleStatus, handleFileSelect, uploadFile, generateAiImage, saveProduct, handleLogout };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的购物车 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66; --red-100:#fbe9ec; --red-50:#fef4f6;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --shadow-sm:0 2px 10px rgba(43,6,14,.06); --shadow-md:0 12px 34px rgba(74,10,24,.14); --shadow-lg:0 26px 60px rgba(74,10,24,.24);
+            --ease-spring:cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing: border-box; margin:0; padding:0; }
+        body {
+            font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); min-height:100vh;
+            background:
+                radial-gradient(900px 600px at 88% -8%, rgba(200,37,69,0.18), transparent 60%),
+                radial-gradient(800px 520px at -6% 22%, rgba(143,21,48,0.14), transparent 55%),
+                linear-gradient(180deg, #fdf9f8 0%, #f6ece9 50%, #f1e3de 100%);
+            background-attachment: fixed;
+        }
+        ::selection { background:var(--red-600); color:#fff; }
+        a { text-decoration:none; color:inherit; }
+
+        .header {
+            position:sticky; top:0; z-index:900;
+            display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            padding:15px clamp(16px,4vw,40px); color:#fff;
+            background:linear-gradient(120deg, var(--red-950) 0%, var(--red-800) 55%, var(--red-600) 100%);
+            border-bottom:1px solid rgba(240,212,138,.35); box-shadow:0 10px 34px rgba(42,6,14,.42);
+        }
+        .brand-name { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(18px,2.2vw,24px); letter-spacing:4px; font-weight:700; margin-right:28px; background:linear-gradient(180deg,#fff,#f0d48a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .header a.nav { color:rgba(255,244,235,.86); margin:0 15px; font-size:15px; letter-spacing:1px; position:relative; padding:6px 2px; transition:color .25s; }
+        .header a.nav::after { content:''; position:absolute; left:0; bottom:0; width:0; height:2px; background:linear-gradient(90deg,var(--gold-light),var(--gold)); transition:width .3s var(--ease-spring); }
+        .header a.nav:hover, .header a.nav.active { color:#ffd98a; }
+        .header a.nav:hover::after, .header a.nav.active::after { width:100%; }
+        .admin-link { color:var(--gold-light) !important; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        .user-chip { font-size:14px; color:#fdeed2; background:rgba(255,255,255,.12); border:1px solid rgba(240,212,138,.3); padding:7px 14px; border-radius:999px; }
+        .btn-ghost { color:#fff; padding:8px 18px; border-radius:12px; background:rgba(255,255,255,.1); border:1px solid rgba(240,212,138,.35); cursor:pointer; transition:.25s; }
+        .btn-ghost:hover { background:rgba(255,255,255,.2); }
+
+        .container { max-width: 1020px; margin: 30px auto; padding: 0 clamp(12px,3vw,20px); margin-bottom: 140px; }
+        .page-title { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+        .page-title h2 { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(22px,3vw,28px); color:var(--red-800); letter-spacing:2px; }
+        .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
+        .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
+
+        .cart-panel { background:rgba(255,255,255,.9); backdrop-filter:blur(14px); border:1px solid rgba(240,212,138,.3); border-radius:24px; padding:clamp(18px,3vw,28px); box-shadow:var(--shadow-lg); }
+        .cart-empty { text-align:center; padding:70px 0; color:var(--ink-soft); }
+        .cart-empty .big { font-size:56px; margin-bottom:14px; }
+
+        .cart-header-row {
+            display:grid; grid-template-columns:44px 3fr 1fr 1.4fr 1fr 84px; gap:8px;
+            padding:16px 10px; border-bottom:2px solid #f2e0db; color:var(--red-800); font-weight:700; text-align:center; font-size:14px; letter-spacing:1px;
+        }
+        .cart-item-row {
+            display:grid; grid-template-columns:44px 3fr 1fr 1.4fr 1fr 84px; gap:8px;
+            padding:20px 10px; border-bottom:1px solid #f3e5e0; align-items:center; text-align:center;
+            transition:background .2s;
+        }
+        .cart-item-row:hover { background:#fff8f6; }
+        .cart-item-row img { width:82px; height:82px; object-fit:cover; border-radius:12px; border:1px solid #eedad4; box-shadow:var(--shadow-sm); }
+        .item-name { font-weight:600; }
+        .item-price, .item-subtotal { color:var(--red-600); font-weight:700; }
+
+        .quantity-controls { display:flex; justify-content:center; align-items:center; gap:10px; }
+        .quantity-controls button { width:30px; height:30px; background:#fdf2f0; color:var(--red-700); font-weight:700; border:none; border-radius:8px; cursor:pointer; transition:.2s; }
+        .quantity-controls button:hover { background:#f6dcd6; }
+        .quantity-controls span { min-width:30px; font-weight:600; }
+
+        .btn-del { background:linear-gradient(135deg,var(--red-700),var(--red-500)); padding:8px 14px; font-size:12px; border:none; color:#fff; border-radius:8px; cursor:pointer; box-shadow:0 4px 12px rgba(176,30,62,.3); transition:.25s; position:relative; overflow:hidden; }
+        .btn-del:hover { filter:brightness(1.1); transform:translateY(-1px); }
+
+        /* 收货地址区 */
+        .checkout-area { margin-top:34px; border-top:2px dashed #ecd9d2; padding-top:24px; }
+        .checkout-area h3 { color:var(--red-800); letter-spacing:1px; margin-bottom:16px; }
+        .address-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+        .address-card {
+            border:1px solid #e8d3ce; border-radius:14px; padding:16px; position:relative; cursor:pointer;
+            background:#fff; transition:all .25s var(--ease-spring); overflow:hidden;
+        }
+        .address-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,var(--gold),var(--red-500)); opacity:0; transition:opacity .25s; }
+        .address-card:hover { border-color:var(--red-500); transform:translateY(-3px); box-shadow:var(--shadow-md); }
+        .address-card:hover::before { opacity:1; }
+        .address-card.active { border-color:var(--red-600); border-width:2px; background:#fff6f4; box-shadow:0 8px 22px rgba(176,30,62,.14); }
+        .address-card.active::before { opacity:1; }
+        .tag { display:inline-block; background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; padding:2px 10px; border-radius:999px; font-size:11px; margin-right:8px; }
+        .tag.default { background:linear-gradient(135deg,#c98a2e,var(--gold)); }
+        .addr-links a { font-size:12px; font-weight:700; margin-right:12px; }
+        .addr-links .set-default { color:#b06f2a; }
+        .addr-links .del { color:var(--red-600); }
+        .btn-add-addr { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; border:none; padding:11px 20px; border-radius:12px; cursor:pointer; margin-top:16px; box-shadow:0 6px 16px rgba(176,30,62,.3); transition:.25s; position:relative; overflow:hidden; letter-spacing:1px; }
+        .btn-add-addr:hover { filter:brightness(1.08); transform:translateY(-2px); }
+
+        /* 底部结算栏 */
+        .footer-bar {
+            position:fixed; bottom:0; left:0; width:100%; z-index:100;
+            background:rgba(255,255,255,.88); backdrop-filter:blur(18px);
+            border-top:1px solid rgba(240,212,138,.45); box-shadow:0 -6px 26px rgba(74,10,24,.14);
+        }
+        .footer-content { max-width:1020px; width:100%; margin:0 auto; display:flex; justify-content:space-between; align-items:center; padding:14px clamp(16px,3vw,20px); }
+        .checked-info { color:var(--ink-soft); font-size:14px; }
+        .checked-info b { color:var(--red-600); font-size:18px; }
+        .total-price { font-size:clamp(20px,3vw,26px); color:var(--red-600); font-weight:800; margin-right:22px; }
+        .total-price small { font-size:14px; font-weight:400; color:var(--ink-soft); }
+        .btn-checkout {
+            color:#fff; border:none; padding:15px 52px; font-size:17px; letter-spacing:2px; border-radius:14px; cursor:pointer; position:relative; overflow:hidden;
+            background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 10px 26px rgba(176,30,62,.4);
+            transition:all .28s var(--ease-spring);
+        }
+        .btn-checkout::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent); transform:skewX(-20deg); transition:left .55s ease; }
+        .btn-checkout:hover:not(:disabled) { transform:translateY(-2px); filter:brightness(1.08); box-shadow:0 16px 34px rgba(176,30,62,.5); }
+        .btn-checkout:hover:not(:disabled)::after { left:130%; }
+        .btn-checkout:disabled { background:#d8c6c0; cursor:not-allowed; box-shadow:none; }
+
+        /* 弹窗 */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(31,3,11,.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:18px; animation:fadeIn .25s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal-content { background:#fff; padding:clamp(22px,3vw,30px); border-radius:20px; width:min(520px,94vw); max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); border:1px solid rgba(240,212,138,.4); animation:modalUp .3s var(--ease-spring); }
+        @keyframes modalUp { from{opacity:0; transform:translateY(26px) scale(.97)} to{opacity:1; transform:none} }
+        .modal-content h3 { color:var(--red-800); margin-bottom:18px; letter-spacing:1px; }
+        .form-group { margin-bottom:15px; }
+        .form-group label { display:block; margin-bottom:6px; font-weight:600; color:#58474a; font-size:14px; }
+        .form-group input { width:100%; padding:11px 13px; border:1px solid #e7d2cc; border-radius:10px; font-family:inherit; font-size:14px; outline:none; transition:border .2s,box-shadow .2s; }
+        .form-group input:focus { border-color:var(--red-500); box-shadow:0 0 0 3px rgba(200,37,69,.12); }
+        .btn-locate { background:linear-gradient(135deg,#c98a2e,var(--gold)); color:#4a2c08; border:none; padding:10px 18px; border-radius:10px; cursor:pointer; font-weight:600; transition:.25s; }
+        .btn-locate:hover { filter:brightness(1.06); }
+        .tag-selector span { display:inline-block; padding:7px 18px; background:#fdf2f0; border-radius:999px; margin-right:10px; cursor:pointer; font-size:14px; color:var(--red-700); border:1px solid #f4ddd6; transition:.2s; }
+        .tag-selector span.active { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(176,30,62,.3); }
+        input[type="checkbox"] { width:18px; height:18px; cursor:pointer; accent-color:var(--red-600); }
+        .modal-actions { text-align:right; margin-top:22px; }
+        .modal-actions button { border:none; padding:11px 24px; border-radius:10px; cursor:pointer; font-size:14px; transition:.25s; }
+        .btn-cancel { background:#e4d8d3; color:#6b5258; }
+        .btn-cancel:hover { background:#d9c9c3; }
+        .btn-save { background:linear-gradient(135deg,var(--red-700),var(--red-500)); color:#fff; margin-left:10px; box-shadow:0 6px 16px rgba(176,30,62,.32); position:relative; overflow:hidden; }
+        .btn-save:hover { filter:brightness(1.08); transform:translateY(-1px); }
+        @media (max-width:700px){
+            .cart-header-row, .cart-item-row { grid-template-columns:36px 2fr 1fr 1fr 80px; }
+            .cart-header-row > :nth-child(4), .cart-item-row > :nth-child(4) { display:none; }
+            .footer-content { flex-direction:column; gap:10px; }
+        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+            <h2 class="brand-name">物语文创</h2>
+            <a class="nav" href="index.html">首页</a>
+            <a class="nav active" href="cart.html">购物车</a>
+            <a class="nav" href="orders.html">我的订单</a>
+            <a v-if="currentUser && currentUser.role === 'ADMIN'" class="nav admin-link" href="admin_dashboard.html">管理后台</a>
+        </div>
+        <div class="header-right">
+            <span class="user-chip" v-if="currentUser">👤 {{ currentUser.username }}</span>
+            <button v-if="currentUser" @click="handleLogout" class="btn-ghost">退出登录</button>
+            <a v-else href="login.html" class="btn-ghost">登录 / 注册</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title"><span class="bar"></span><h2>我的购物车</h2></div>
+
+        <div class="cart-panel">
+            <div class="cart-empty" v-if="cart.length === 0">
+                <div class="big">🛒</div>
+                <div>购物车空空如也~ 快去首页逛逛吧</div>
+            </div>
+
+            <template v-else>
+                <!-- 表头 -->
+                <div class="cart-header-row">
+                    <div>勾选</div>
+                    <div style="text-align:left; padding-left:16px;">商品信息</div>
+                    <div>单价</div>
+                    <div>数量</div>
+                    <div>小计</div>
+                    <div>操作</div>
+                </div>
+
+                <!-- 商品列表 -->
+                <div class="cart-item-row" v-for="item in cart" :key="item.id">
+                    <div><input type="checkbox" :checked="item.checked" @change="toggleCheck(item)"></div>
+                    <div style="text-align:left; padding-left:16px; display:flex; align-items:center; gap:15px;">
+                        <img :src="item.productImage" alt="商品">
+                        <span class="item-name">{{ item.productName }}</span>
+                    </div>
+                    <div class="item-price">¥ {{ item.productPrice }}</div>
+                    <div class="quantity-controls">
+                        <button @click="changeQuantity(item, -1)">−</button>
+                        <span>{{ item.quantity }}</span>
+                        <button @click="changeQuantity(item, 1)">+</button>
+                    </div>
+                    <div class="item-subtotal">¥ {{ item.totalPrice }}</div>
+                    <div><button class="btn-del" @click="deleteItem(item.id)">删除</button></div>
+                </div>
+
+                <!-- 收货地址模块 -->
+                <div class="checkout-area">
+                    <h3>📍 选择收货地址</h3>
+                    <div v-if="addressList.length === 0" style="color:#a08f8a; margin-bottom:12px;">暂无收货地址，请新增。</div>
+
+                    <div class="address-grid">
+                        <div v-for="addr in addressList" :key="addr.id"
+                             class="address-card" :class="{ active: selectedAddressId === addr.id }"
+                             @click="selectedAddressId = addr.id">
+                            <div>
+                                <span class="tag default" v-if="addr.isDefault">默认</span>
+                                <span class="tag" v-else>{{ addr.tag }}</span>
+                                <strong>{{ addr.receiverName }}</strong>　{{ addr.receiverPhone }}
+                            </div>
+                            <div style="color:#6b5258; margin-top:6px; font-size:14px; line-height:1.6;">
+                                {{ addr.province }} {{ addr.city }} {{ addr.district }} {{ addr.detailAddress }}
+                            </div>
+                            <div class="addr-links" style="margin-top:9px; font-size:12px;" v-if="!addr.isDefault">
+                                <a href="javascript:void(0)" @click.stop="setDefault(addr.id)" class="set-default">设为默认</a>
+                                <a href="javascript:void(0)" @click.stop="deleteAddress(addr.id)" class="del">删除</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-add-addr" @click="showAddressModal = true">+ 新增收货地址</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- 底部结算栏 -->
+    <div class="footer-bar" v-if="cart.length > 0">
+        <div class="footer-content">
+            <div class="checked-info">已选商品：<b>{{ checkedCount }}</b> 件</div>
+            <div style="display:flex; align-items:center;">
+                <span class="total-price"><small>合计：</small>¥ {{ checkedTotalPrice }}</span>
+                <button class="btn-checkout" :disabled="checkedCount === 0 || !selectedAddressId" @click="submitOrder">去结算</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增地址弹窗 -->
+    <div class="modal" v-if="showAddressModal">
+        <div class="modal-content">
+            <h3>新增收货地址</h3>
+            <div class="form-group">
+                <button class="btn-locate" @click="autoLocate">📡 点击自动定位</button>
+                <span style="font-size:12px; color:#a08f8a; margin-left:10px;">定位结果可手动修改</span>
+            </div>
+            <div class="form-group">
+                <label>收货人</label>
+                <input v-model="newAddress.receiverName" placeholder="请输入姓名">
+            </div>
+            <div class="form-group">
+                <label>手机号</label>
+                <input v-model="newAddress.receiverPhone" placeholder="请输入手机号">
+            </div>
+            <div class="form-group">
+                <label>地址标签</label>
+                <div class="tag-selector">
+                    <span :class="{ active: newAddress.tag === '家' }" @click="newAddress.tag = '家'">家</span>
+                    <span :class="{ active: newAddress.tag === '公司' }" @click="newAddress.tag = '公司'">公司</span>
+                    <span :class="{ active: newAddress.tag === '学校' }" @click="newAddress.tag = '学校'">学校</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>所在地区（自动定位或手动填写）</label>
+                <div style="display:flex; gap:6px;">
+                    <input v-model="newAddress.province" placeholder="省" style="width:33%">
+                    <input v-model="newAddress.city" placeholder="市" style="width:33%">
+                    <input v-model="newAddress.district" placeholder="区/县" style="width:33%">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>详细地址</label>
+                <input v-model="newAddress.detailAddress" placeholder="街道、门牌号等">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" v-model="newAddress.isDefault"> 设为默认地址</label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showAddressModal = false">取消</button>
+                <button class="btn-save" @click="saveAddress">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+    createApp({
+        setup() {
+            const cart = ref([]);
+            const addressList = ref([]);
+            const selectedAddressId = ref(null);
+            const showAddressModal = ref(false);
+            const currentUser = ref(null);
+
+            const newAddress = ref({
+                receiverName: '', receiverPhone: '', tag: '家',
+                province: '', city: '', district: '', detailAddress: '', isDefault: false
+            });
+
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            // 检查登录状态
+            const checkLogin = async () => {
+                try {
+                    const res = await api.get('/user/current');
+                    if (res.data) currentUser.value = res.data;
+                } catch (e) { /* 未登录 */ }
+            };
+
+            const handleLogout = async () => {
+                await api.post('/user/logout');
+                window.location.href = 'login.html';
+            };
+
+            // 加载购物车
+            const loadCart = async () => {
+                try {
+                    const res = await api.get('/cart/list');
+                    cart.value = res.data;
+                } catch (e) {
+                    alert('请先登录！');
+                    window.location.href = 'login.html';
+                }
+            };
+
+            // 加载地址列表
+            const loadAddresses = async () => {
+                try {
+                    const res = await api.get('/address/list');
+                    addressList.value = res.data;
+                    if (res.data.length > 0) {
+                        const defaultAddr = res.data.find(a => a.isDefault);
+                        selectedAddressId.value = defaultAddr ? defaultAddr.id : res.data[0].id;
+                    }
+                } catch (e) { console.log("加载地址失败", e); }
+            };
+
+            // 保存新地址
+            const saveAddress = async () => {
+                if (!newAddress.value.receiverName || !newAddress.value.receiverPhone || !newAddress.value.detailAddress) {
+                    alert('请填写完整的收货信息'); return;
+                }
+                try {
+                    await api.post('/address/add', newAddress.value);
+                    alert('地址添加成功');
+                    showAddressModal.value = false;
+                    newAddress.value = { receiverName: '', receiverPhone: '', tag: '家', province: '', city: '', district: '', detailAddress: '', isDefault: false };
+                    await loadAddresses();
+                } catch (e) { alert('保存失败: ' + (e.response?.data?.message || e.message)); }
+            };
+
+            // 设置默认地址
+            const setDefault = async (id) => {
+                await api.post(`/address/setDefault?addressId=${id}`);
+                await loadAddresses();
+            };
+
+            // 删除地址
+            const deleteAddress = async (id) => {
+                if (!confirm('确定要删除这个地址吗？')) return;
+                await api.post(`/address/delete?addressId=${id}`);
+                await loadAddresses();
+            };
+
+            // 自动定位
+            const autoLocate = () => {
+                if (!navigator.geolocation) {
+                    alert('您的浏览器不支持定位功能'); return;
+                }
+                alert('正在定位，请稍后...');
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    try {
+                        const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=zh-CN`);
+                        const addr = res.data.address;
+                        newAddress.value.province = addr.state || addr.province || '';
+                        newAddress.value.city = addr.city || addr.town || '';
+                        newAddress.value.district = addr.county || addr.suburb || '';
+                        newAddress.value.detailAddress = addr.road || addr.neighbourhood || '';
+                        alert('定位成功，请补充详细门牌号！');
+                    } catch (err) {
+                        alert('定位解析失败，请手动填写地址。');
+                    }
+                }, (error) => {
+                    alert('定位失败，请检查浏览器定位权限或手动填写地址。');
+                });
+            };
+
+            // ====== 购物车核心逻辑（修复类型转换错误） ======
+
+            // 修复1：强制将 quantity 转换为数字再累加
+            const checkedCount = computed(() => {
+                return cart.value.filter(i => i.checked).reduce((s, i) => s + Number(i.quantity), 0);
+            });
+
+            // 修复2：强制将 totalPrice 转换为浮点数再累加，最后保留两位小数
+            const checkedTotalPrice = computed(() => {
+                const total = cart.value.filter(i => i.checked).reduce((s, i) => s + parseFloat(i.totalPrice), 0);
+                return total.toFixed(2);
+            });
+
+            const toggleCheck = async (item) => {
+                item.checked = !item.checked;
+                await api.post(`/cart/updateChecked?cartId=${item.id}&checked=${item.checked}`);
+            };
+
+            // 修复3：数量修改时，强制用 parseFloat 转换单价，避免字符串拼接
+            const changeQuantity = async (item, delta) => {
+                const qty = item.quantity + delta;
+                if (qty <= 0) return;
+                await api.post(`/cart/updateQuantity?cartId=${item.id}&quantity=${qty}`);
+                item.quantity = qty;
+                item.totalPrice = (parseFloat(item.productPrice) * qty).toFixed(2);
+            };
+
+            const deleteItem = async (id) => {
+                if (!confirm('确定删除该商品？')) return;
+                await api.post(`/cart/delete?cartId=${id}`);
+                loadCart();
+            };
+
+            // 提交订单
+            const submitOrder = async () => {
+                if (!selectedAddressId.value) { alert('请选择收货地址'); return; }
+                try {
+                    await api.post(`/order/create?addressId=${selectedAddressId.value}`);
+                    alert('下单成功！请前往订单页支付');
+                    window.location.href = 'orders.html';
+                } catch (e) { alert('下单失败: ' + (e.response?.data?.message || e.message)); }
+            };
+
+            onMounted(() => {
+                checkLogin();
+                loadCart();
+                loadAddresses();
+            });
+
+            return { cart, addressList, selectedAddressId, showAddressModal, newAddress, currentUser,
+                checkedCount, checkedTotalPrice, toggleCheck, changeQuantity, deleteItem,
+                saveAddress, setDefault, deleteAddress, autoLocate, submitOrder, handleLogout };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

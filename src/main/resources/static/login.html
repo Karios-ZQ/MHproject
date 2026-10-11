@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 / 注册 - 物语文创商城</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
+            --red-600:#b01e3e; --red-500:#c82545; --red-400:#d94a66;
+            --gold:#d4af37; --gold-light:#f0d48a;
+            --ink:#2c171b; --ink-soft:#6b5258;
+            --ease-spring: cubic-bezier(.34,1.56,.64,1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: "PingFang SC","Microsoft YaHei",sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; overflow: hidden; color: var(--ink);
+            background:
+                radial-gradient(1200px 800px at 20% -10%, rgba(200,37,69,0.45), transparent 55%),
+                radial-gradient(1000px 700px at 110% 110%, rgba(212,175,55,0.28), transparent 55%),
+                linear-gradient(135deg, #1f040c 0%, var(--red-900) 55%, var(--red-700) 100%);
+        }
+        /* 动态漂浮光斑 */
+        body::before {
+            content:''; position: absolute; width: 520px; height: 520px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(212,175,55,0.22), transparent 70%);
+            top: -140px; right: -120px; animation: drift1 12s ease-in-out infinite alternate;
+        }
+        body::after {
+            content:''; position: absolute; width: 460px; height: 460px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.13), transparent 70%);
+            bottom: -120px; left: -100px; animation: drift2 14s ease-in-out infinite alternate;
+        }
+        @keyframes drift1 { to { transform: translate(-60px, 40px) scale(1.15); } }
+        @keyframes drift2 { to { transform: translate(50px, -50px) scale(1.12); } }
+        /* 颗粒纹理 */
+        .grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .05;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+        .login-box {
+            position: relative; z-index: 2;
+            width: min(430px, 92vw);
+            padding: clamp(30px, 5vw, 44px) clamp(26px, 4vw, 40px);
+            border-radius: 24px;
+            background: rgba(255,255,255,0.94);
+            backdrop-filter: blur(18px) saturate(1.3);
+            border: 1px solid rgba(240,212,138,0.55);
+            box-shadow: 0 34px 90px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.7);
+            animation: cardIn .7s var(--ease-spring) both;
+        }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(34px) scale(.97); } to { opacity: 1; transform: none; } }
+        .login-box::before {
+            content:''; position: absolute; top: 0; left: 12%; right: 12%; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--red-500), var(--gold), transparent);
+            border-radius: 2px;
+        }
+
+        .brand { text-align: center; margin-bottom: 24px; }
+        .brand .logo {
+            width: 66px; height: 66px; margin: 0 auto 14px; border-radius: 20px;
+            display: flex; align-items: center; justify-content: center; font-size: 34px;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            box-shadow: 0 12px 28px rgba(176,30,62,0.4);
+        }
+        .brand h1 {
+            font-family: "Noto Serif SC","STSong",serif; font-size: 26px; letter-spacing: 3px;
+            background: linear-gradient(120deg, var(--red-800), var(--red-600));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .brand p { margin-top: 8px; font-size: 13px; color: var(--ink-soft); letter-spacing: 2px; }
+
+        .tab-bar {
+            display: flex; background: #fceeeb; border-radius: 14px; padding: 5px; margin-bottom: 22px;
+            border: 1px solid #f6d9d3;
+        }
+        .tab-bar div {
+            flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; cursor: pointer;
+            font-weight: 600; font-size: 15px; color: var(--red-700); transition: all .3s var(--ease-spring);
+            letter-spacing: 2px;
+        }
+        .tab-bar div.active {
+            background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff;
+            box-shadow: 0 6px 18px rgba(176,30,62,0.34);
+        }
+
+        .field-label { text-align: left; font-size: 12px; color: var(--ink-soft); margin: 14px 0 6px; letter-spacing: 1px; }
+        input {
+            width: 100%; padding: 13px 15px; font-size: 14px; font-family: inherit; color: var(--ink);
+            border: 1px solid #e8d3ce; border-radius: 12px; outline: none; background: #fff;
+            transition: border .25s, box-shadow .25s;
+        }
+        input::placeholder { color: #c0a8a2; }
+        input:focus { border-color: var(--red-500); box-shadow: 0 0 0 4px rgba(200,37,69,0.12); }
+
+        button.main {
+            width: 100%; margin-top: 22px; padding: 14px; font-size: 16px; letter-spacing: 4px;
+            color: #fff; border: none; border-radius: 12px; cursor: pointer; position: relative; overflow: hidden;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            box-shadow: 0 10px 26px rgba(176,30,62,0.4);
+            transition: all .28s var(--ease-spring);
+        }
+        button.main::after {
+            content:''; position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+            background: linear-gradient(105deg, transparent, rgba(255,255,255,.4), transparent);
+            transform: skewX(-20deg); transition: left .55s ease;
+        }
+        button.main:hover { transform: translateY(-2px); filter: brightness(1.07); box-shadow: 0 16px 34px rgba(176,30,62,0.5); }
+        button.main:hover::after { left: 130%; }
+        button.main:active { transform: translateY(0); }
+
+        .tips {
+            font-size: 12px; color: var(--ink-soft); margin-top: 18px; text-align: center;
+            background: #fdf6f3; border: 1px dashed #efd4cd; border-radius: 10px; padding: 10px; line-height: 1.7;
+        }
+        .tips b { color: var(--red-600); }
+        a.link { color: var(--red-600); text-decoration: none; display: block; text-align: center; margin-top: 18px; font-size: 13px; letter-spacing: 1px; }
+        a.link:hover { text-decoration: underline; }
+
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+<div class="grain"></div>
+<div id="app">
+    <div class="login-box">
+        <div class="brand">
+            <div class="logo">🎨</div>
+            <h1>物语文创商城</h1>
+            <p>每一件文创，都是生活的诗意</p>
+        </div>
+        <div class="tab-bar">
+            <div :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</div>
+            <div :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</div>
+        </div>
+
+        <!-- 登录 -->
+        <template v-if="mode === 'login'">
+            <div class="field-label">用户名</div>
+            <input v-model="username" placeholder="请输入用户名">
+            <div class="field-label">密码</div>
+            <input v-model="password" type="password" placeholder="请输入密码" @keyup.enter="handleLogin">
+            <button class="main" @click="handleLogin">立即登录</button>
+            <div class="tips">测试账号：<b>testuser / 123456</b>　管理员：<b>admin</b></div>
+        </template>
+
+        <!-- 注册 -->
+        <template v-else>
+            <div class="field-label">用户名</div>
+            <input v-model="reg.username" placeholder="请输入用户名（3-20个字符）">
+            <div class="field-label">密码</div>
+            <input v-model="reg.password" type="password" placeholder="请输入密码">
+            <div class="field-label">确认密码</div>
+            <input v-model="reg.confirm" type="password" placeholder="请再次输入密码" @keyup.enter="handleRegister">
+            <button class="main" @click="handleRegister">注册并登录</button>
+        </template>
+
+        <a href="index.html" class="link">← 返回首页以游客身份浏览</a>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref } = Vue;
+    createApp({
+        setup() {
+            const mode = ref('login');
+            const username = ref('');
+            const password = ref('');
+            const reg = ref({ username: '', password: '', confirm: '' });
+            const api = axios.create({ baseURL: '/api', withCredentials: true });
+
+            const handleLogin = async () => {
+                if (!username.value || !password.value) { alert('请输入用户名和密码'); return; }
+                try {
+                    const res = await api.post(`/user/login?username=${username.value}&password=${password.value}`);
+                    const user = res.data;
+                    alert('登录成功！');
+                    if (user && user.role === 'ADMIN') {
+                        window.location.href = 'admin_dashboard.html';
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                } catch (e) {
+                    alert('登录失败: ' + (e.response?.data?.message || e.message));
+                }
+            };
+
+            const handleRegister = async () => {
+                if (!reg.value.username || !reg.value.password) { alert('请输入用户名和密码'); return; }
+                if (reg.value.username.length < 3 || reg.value.username.length > 20) { alert('用户名长度需在3-20个字符之间'); return; }
+                if (reg.value.password.length < 6) { alert('密码长度至少6位'); return; }
+                if (reg.value.password !== reg.value.confirm) { alert('两次输入的密码不一致'); return; }
+                try {
+                    await api.post(`/user/register?username=${reg.value.username}&password=${reg.value.password}&confirmPassword=${reg.value.confirm}`);
+                    alert('注册成功，已自动登录！');
+                    window.location.href = 'index.html';
+                } catch (e) {
+                    alert('注册失败: ' + (e.response?.data?.message || e.message));
+                }
+            };
+
+            return { mode, username, password, reg, handleLogin, handleRegister };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

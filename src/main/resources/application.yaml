@@ -1,0 +1,60 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: MHproject
+  # Redis：库存防超卖 / 热点缓存 / Session 共享（本机默认 6379，无需密码）
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  # 会话存到 Redis：多实例部署时登录态共享
+  session:
+    store-type: redis
+    timeout: 30m
+  datasource:
+    url: jdbc:mysql://localhost:3306/mhproject?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update # 让它自动维护表结构
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  # 文件上传大小限制
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  # DeepSeek AI 配置
+  # 注意：API Key 已从代码中移除，通过环境变量 DEEPSEEK_API_KEY 注入，避免密钥泄露。
+  # 使用方式（Windows PowerShell 临时设置）：
+  #   $env:DEEPSEEK_API_KEY="你的key" ; mvnw spring-boot:run
+  ai:
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.7
+
+# 豆包文生图（火山方舟 Seedream）配置
+# 通过环境变量注入，未配置时 AI 生图功能返回友好提示，不影响其它功能。
+# 使用方式（Windows PowerShell 临时设置）：
+#   $env:DOUBAO_ARK_API_KEY="你的火山方舟API Key"
+#   $env:DOUBAO_ARK_MODEL="doubao-seedream-5-0-260128"（模型ID，开通后在模型列表查看）
+doubao:
+  ark:
+    api-key: ${DOUBAO_ARK_API_KEY:}
+    model: ${DOUBAO_ARK_MODEL:}
