@@ -182,4 +182,10 @@ public class AiController {
                                 @RequestParam(required = false) String size) {
         return aiService.generateImage(prompt, size);
     }
+
+    // 功能9：AI 地址智能识别（粘贴完整地址自动拆分为省/市/区/详细地址）
+    @PostMapping("/address/parse")
+    public Map<String, String> parseAddress(@RequestParam String raw) {
+        return aiService.parseAddress(raw);
+    }
 }
