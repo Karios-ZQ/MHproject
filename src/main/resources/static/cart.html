@@ -276,11 +276,20 @@
                 <span style="font-size:12px; color:#a08f8a;">识别后自动填入省/市/区/详细地址，可再手动修改</span>
             </div>
             <div class="form-group">
-                <label>所在地区（自动定位或手动填写）</label>
+                <label>所在地区（选择或自动识别/定位）</label>
                 <div style="display:flex; gap:6px;">
-                    <input v-model="newAddress.province" placeholder="省" style="width:33%">
-                    <input v-model="newAddress.city" placeholder="市" style="width:33%">
-                    <input v-model="newAddress.district" placeholder="区/县" style="width:33%">
+                    <select v-model="newAddress.province" style="width:33%" @change="onProvinceChange">
+                        <option value="">请选择省</option>
+                        <option v-for="p in provinces" :key="p" :value="p">{{ p }}</option>
+                    </select>
+                    <select v-model="newAddress.city" style="width:33%" @change="onCityChange">
+                        <option value="">请选择市</option>
+                        <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
+                    </select>
+                    <select v-model="newAddress.district" style="width:33%">
+                        <option value="">请选择区/县</option>
+                        <option v-for="d in districts" :key="d" :value="d">{{ d }}</option>
+                    </select>
                 </div>
             </div>
             <div class="form-group">
@@ -309,6 +318,43 @@
             const currentUser = ref(null);
             const pasteAddress = ref('');
             const parsing = ref(false);
+            // 行政区划数据（省 → 市 → 区县），从 pca.json 加载
+            const regionData = ref({});
+            const provinces = computed(() => Object.keys(regionData.value));
+            const cities = computed(() => {
+                const p = newAddress.value.province;
+                return p && regionData.value[p] ? Object.keys(regionData.value[p]) : [];
+            });
+            const districts = computed(() => {
+                const p = newAddress.value.province, c = newAddress.value.city;
+                return p && c && regionData.value[p] && regionData.value[p][c] ? regionData.value[p][c] : [];
+            });
+            const loadRegion = async () => {
+                try {
+                    const res = await axios.get('/pca.json');
+                    regionData.value = res.data || {};
+                } catch (e) { console.log('行政区划加载失败', e); }
+            };
+            // 选择省/市时重置下级
+            const onProvinceChange = () => { newAddress.value.city = ''; newAddress.value.district = ''; };
+            const onCityChange = () => { newAddress.value.district = ''; };
+            // 在下拉选项中找一个与解析值匹配的项（兼容“北京”与“北京市”等写法）
+            const findRegion = (options, name) => {
+                if (!name) return '';
+                const hit = options.find(x => x === name || x.startsWith(name) || name.startsWith(x));
+                return hit || name;
+            };
+            // 把解析/定位出的省市区与下拉选项对齐并回填
+            const applyRegion = (province, city, district, detail) => {
+                const p = findRegion(provinces.value, (province || '').trim());
+                newAddress.value.province = p;
+                const cityOpts = p && regionData.value[p] ? Object.keys(regionData.value[p]) : [];
+                const c = findRegion(cityOpts, (city || '').trim());
+                newAddress.value.city = c;
+                const distOpts = p && c && regionData.value[p] && regionData.value[p][c] ? regionData.value[p][c] : [];
+                newAddress.value.district = findRegion(distOpts, (district || '').trim());
+                newAddress.value.detailAddress = (detail || '').trim();
+            };
 
             const newAddress = ref({
                 receiverName: '', receiverPhone: '', tag: '家',
@@ -392,10 +438,12 @@
                     try {
                         const res = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=zh-CN`);
                         const addr = res.data.address;
-                        newAddress.value.province = addr.state || addr.province || '';
-                        newAddress.value.city = addr.city || addr.town || '';
-                        newAddress.value.district = addr.county || addr.suburb || '';
-                        newAddress.value.detailAddress = addr.road || addr.neighbourhood || '';
+                        applyRegion(
+                            addr.state || addr.province || '',
+                            addr.city || addr.town || '',
+                            addr.county || addr.suburb || '',
+                            addr.road || addr.neighbourhood || ''
+                        );
                         alert('定位成功，请补充详细门牌号！');
                     } catch (err) {
                         alert('定位解析失败，请手动填写地址。');
@@ -413,10 +461,7 @@
                 try {
                     const res = await api.post('/ai/address/parse?raw=' + encodeURIComponent(raw));
                     const d = res.data || {};
-                    newAddress.value.province = d.province || '';
-                    newAddress.value.city = d.city || '';
-                    newAddress.value.district = d.district || '';
-                    newAddress.value.detailAddress = d.detailAddress || '';
+                    applyRegion(d.province, d.city, d.district, d.detailAddress);
                     alert('识别成功，已自动填入省/市/区/详细地址，请核对后保存！');
                 } catch (e) {
                     alert('识别失败，请手动填写地址。' + (e.response?.data?.message || e.message || ''));
@@ -472,11 +517,14 @@
                 checkLogin();
                 loadCart();
                 loadAddresses();
+                loadRegion();
             });
 
             return { cart, addressList, selectedAddressId, showAddressModal, newAddress, currentUser,
+                pasteAddress, parsing, provinces, cities, districts,
+                onProvinceChange, onCityChange,
                 checkedCount, checkedTotalPrice, toggleCheck, changeQuantity, deleteItem,
-                saveAddress, setDefault, deleteAddress, autoLocate, submitOrder, handleLogout };
+                saveAddress, setDefault, deleteAddress, autoLocate, parsePastedAddress, submitOrder, handleLogout };
         }
     }).mount('#app');
 </script>
