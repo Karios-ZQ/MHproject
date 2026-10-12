@@ -174,7 +174,28 @@ public class AiService {
         return localParseAddress(text);
     }
 
-    /** 本地规则兜底：用正则按“省 → 市 → 区/县 → 剩余”的顺序拆分地址 */
+    /** 全国省级行政区（含全称与常用简称，按长度降序保证长名优先匹配） */
+    private static final List<String> PROVINCES = List.of(
+            "内蒙古自治区", "广西壮族自治区", "宁夏回族自治区", "新疆维吾尔自治区", "西藏自治区",
+            "香港特别行政区", "澳门特别行政区",
+            "黑龙江省", "吉林省", "辽宁省", "河北省", "河南省", "山东省", "山西省", "陕西省",
+            "江苏省", "浙江省", "安徽省", "福建省", "江西省", "湖北省", "湖南省", "广东省",
+            "海南省", "四川省", "贵州省", "云南省", "甘肃省", "青海省", "台湾省",
+            "北京市", "天津市", "上海市", "重庆市",
+            "内蒙古", "广西", "宁夏", "新疆", "西藏", "香港", "澳门",
+            "黑龙江", "吉林", "辽宁", "河北", "河南", "山东", "山西", "陕西",
+            "江苏", "浙江", "安徽", "福建", "江西", "湖北", "湖南", "广东",
+            "海南", "四川", "贵州", "云南", "甘肃", "青海", "台湾",
+            "北京", "天津", "上海", "重庆");
+
+    /** 直辖市名（用于省、市同源并规范为全称） */
+    private static final String[] MUNICIPALITIES = {"北京市", "天津市", "上海市", "重庆市"};
+
+    /**
+     * 本地地址解析：按“省 → 市 → 区/县 → 剩余”的顺序拆分。
+     * 省名优先用内置词典匹配（支持全称/简称、有无“省/自治区”后缀），
+     * 市、区用正则边界匹配，剩余内容（街道、门牌、小区、楼栋等）完整保留到详细地址。
+     */
     private Map<String, String> localParseAddress(String text) {
         Map<String, String> r = new LinkedHashMap<>();
         r.put("province", "");
@@ -184,32 +205,45 @@ public class AiService {
 
         String rest = text.trim();
 
-        // 直辖市（省/市同为一个）
-        Matcher mu = Pattern.compile("^(北京|上海|天津|重庆)市?").matcher(rest);
-        if (mu.find()) {
-            r.put("province", mu.group(1));
-            r.put("city", mu.group(1));
-            rest = rest.substring(mu.end());
-        } else {
-            // 常规省份：自治区 / 特别行政区 / xx省
-            Matcher mp = Pattern.compile("^(内蒙古自治区|广西壮族自治区|宁夏回族自治区|新疆维吾尔自治区|西藏自治区|香港特别行政区|澳门特别行政区|[^省市区]+?省)").matcher(rest);
-            if (mp.find()) {
-                r.put("province", mp.group(1));
-                rest = rest.substring(mp.end());
+        // 1) 省份：词典最长优先匹配（“内蒙古自治区”先于“内蒙古”，“河北”也能识别）
+        String province = "";
+        for (String p : PROVINCES) {
+            if (rest.startsWith(p)) {
+                province = p;
+                rest = rest.substring(p.length());
+                break;
             }
-            // 市级
+        }
+
+        // 直辖市：省、市同源，并规范为“北京市”等全称
+        boolean muni = false;
+        for (String m : MUNICIPALITIES) {
+            if (province.startsWith(m.substring(0, 2))) {
+                province = m;
+                muni = true;
+                break;
+            }
+        }
+        r.put("province", province);
+        if (muni) {
+            r.put("city", province);
+        } else {
+            // 2) 市级
             Matcher mc = Pattern.compile("^([^省市区]+?市)").matcher(rest);
             if (mc.find()) {
                 r.put("city", mc.group(1));
                 rest = rest.substring(mc.end());
             }
         }
-        // 区 / 县 / 旗 / 县级市
-        Matcher md = Pattern.compile("^([^省市区]+?(?:区|县|自治县|自治旗|旗|县级市|新区))").matcher(rest);
+
+        // 3) 区 / 县 / 旗 / 县级市（如“昆山市”）/ 新区
+        Matcher md = Pattern.compile("^([^省市区]+?(?:区|县|自治县|自治旗|旗|县级市|新区|市))").matcher(rest);
         if (md.find()) {
             r.put("district", md.group(1));
             rest = rest.substring(md.end());
         }
+
+        // 剩余内容：街道、门牌号、小区、楼栋、单元、房间号等
         r.put("detailAddress", rest.trim());
         return r;
     }
