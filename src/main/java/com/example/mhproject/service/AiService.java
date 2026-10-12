@@ -150,12 +150,11 @@ public class AiService {
         }
     }
 
-    // ================ 功能9：AI 地址智能识别（粘贴地址自动拆分） ================
+    // ================ 功能9：地址智能识别（粘贴地址自动拆分） ================
     /**
      * 根据用户粘贴的一整段收货地址（如 "北京市海淀区中关村大街27号中关村大厦A座801室"），
      * 自动识别拆分为省 / 市 / 区 / 详细地址四个字段，供前端自动填入对应输入框。
-     * <p>策略：优先调用 DeepSeek 语义识别；AI 未配置、超时或返回异常时，自动降级用本地规则兜底，
-     * 保证功能在 AI 不可用时依然可用。
+     * <p>使用代码内置的本地正则规则拆分，无需依赖外部 AI 服务，离线也可用。
      *
      * @param raw 用户粘贴的原始完整地址
      * @return 含 province / city / district / detailAddress 四个键的 Map
@@ -171,92 +170,8 @@ public class AiService {
         String text = raw.trim();
         if (text.isEmpty()) return result;
 
-        // 1) 优先 AI 语义识别
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            try {
-                String prompt = "你是地址解析助手。请把下面这段中国收货地址拆分成语义字段，只返回严格 JSON，不要任何解释或 markdown 标记：\n" +
-                        "{\"province\":\"省/直辖市\",\"city\":\"市\",\"district\":\"区/县\",\"detailAddress\":\"街道、门牌号、楼栋房间号等剩余部分\"}\n" +
-                        "规则：直辖市（如北京、上海、天津、重庆）province 与 city 相同；行政区划缺失的字段填空字符串；detailAddress 必须包含除省市区外的全部剩余内容。\n" +
-                        "待解析地址：" + text;
-                String content = callDeepSeek(prompt);
-                Map<String, String> aiResult = extractAddressFromJson(content);
-                if (aiResult != null && !aiResult.isEmpty()) {
-                    return fillResult(aiResult, text);
-                }
-            } catch (Exception ignored) {
-                // 降级走本地规则
-            }
-        }
-
-        // 2) 本地规则兜底
+        // 本地规则解析：按“省 → 市 → 区/县 → 剩余”拆分，不依赖外部 AI 服务
         return localParseAddress(text);
-    }
-
-    /** 调用 DeepSeek 返回原始内容（无 API Key 或异常时返回 null） */
-    private String callDeepSeek(String prompt) {
-        if (apiKey == null || apiKey.trim().isEmpty()) return null;
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
-            Map<String, Object> message = Map.of("role", "user", "content", prompt);
-            Map<String, Object> requestBody = Map.of(
-                    "model", "deepseek-chat", "messages", List.of(message), "temperature", 0.2, "stream", false);
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(API_URL, entity, Map.class);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                List choices = (List) response.getBody().get("choices");
-                if (choices != null && !choices.isEmpty()) {
-                    Map firstChoice = (Map) choices.get(0);
-                    Map msg = (Map) firstChoice.get("message");
-                    return (String) msg.get("content");
-                }
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /** 从 AI 返回文本中提取地址 JSON 字段（兼容前后多出的文字 / 代码块标记） */
-    private Map<String, String> extractAddressFromJson(String content) {
-        if (content == null) return null;
-        Map<String, String> map = new LinkedHashMap<>();
-        for (String key : new String[]{"province", "city", "district", "detailAddress"}) {
-            String v = extractJsonField(content, key);
-            if (v == null) return null; // 关键字段缺失视为解析失败
-            map.put(key, v.trim());
-        }
-        return map;
-    }
-
-    /** 从文本中用正则提取指定 JSON 字段值（去掉首尾引号与转义） */
-    private String extractJsonField(String content, String key) {
-        Matcher m = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]*)\"").matcher(content);
-        if (m.find()) {
-            String v = m.group(1);
-            return v.replace("\\\"", "\"").replace("\\\\", "\\").replace("\\n", "").replace("\\u", " ");
-        }
-        return null;
-    }
-
-    /** 把 AI 结果与原始文本合并，保证 detailAddress 完整、空字段可回填 */
-    private Map<String, String> fillResult(Map<String, String> ai, String text) {
-        Map<String, String> r = new LinkedHashMap<>();
-        r.put("province", ai.getOrDefault("province", ""));
-        r.put("city", ai.getOrDefault("city", ""));
-        r.put("district", ai.getOrDefault("district", ""));
-        r.put("detailAddress", ai.getOrDefault("detailAddress", ""));
-        // 若 AI 未拆分出详细地址，则用原始文本剩余内容兜底
-        if (r.get("detailAddress").isEmpty()) {
-            String head = r.get("province") + r.get("city") + r.get("district");
-            String rest = text;
-            for (String seg : new String[]{r.get("province"), r.get("city"), r.get("district")}) {
-                if (seg != null && !seg.isEmpty()) rest = rest.replace(seg, "");
-            }
-            r.put("detailAddress", rest.replace(head, "").trim());
-        }
-        return r;
     }
 
     /** 本地规则兜底：用正则按“省 → 市 → 区/县 → 剩余”的顺序拆分地址 */
