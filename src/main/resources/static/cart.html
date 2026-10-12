@@ -6,6 +6,8 @@
     <title>我的购物车 - 物语文创商城</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
             --red-950:#2a060e; --red-900:#4a0a18; --red-800:#6b0f20; --red-700:#8f1530;
@@ -297,6 +299,11 @@
                 <input v-model="newAddress.detailAddress" placeholder="街道、门牌号等">
             </div>
             <div class="form-group">
+                <button class="btn-locate" :disabled="locating" @click="locateOnMap">{{ locating ? '定位中...' : '📍 定位到地图' }}</button>
+                <span style="font-size:12px; color:#a08f8a; margin-left:10px;">在地图上确认收货位置（需配置高德Key）</span>
+            </div>
+            <div id="addr-map" style="height:260px; border-radius:10px; margin-bottom:12px; z-index:1;"></div>
+            <div class="form-group">
                 <label><input type="checkbox" v-model="newAddress.isDefault"> 设为默认地址</label>
             </div>
             <div class="modal-actions">
@@ -318,6 +325,7 @@
             const currentUser = ref(null);
             const pasteAddress = ref('');
             const parsing = ref(false);
+            const locating = ref(false);
             // 行政区划数据（省 → 市 → 区县），从 pca.json 加载
             const regionData = ref({});
             const provinces = computed(() => Object.keys(regionData.value));
@@ -470,6 +478,44 @@
                 }
             };
 
+            // 地图定位：把省市区+详细地址转成坐标并在 Leaflet 地图上显示
+            let mapInstance = null;
+            let mapMarker = null;
+            const initMap = (lng, lat, label) => {
+                const el = document.getElementById('addr-map');
+                if (!el || typeof L === 'undefined') return;
+                // 弹窗关闭再打开时容器会被重建，这里每次定位都重建地图，避免绑定到已移除的节点
+                if (mapInstance) { mapInstance.remove(); mapInstance = null; mapMarker = null; }
+                mapInstance = L.map('addr-map').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(mapInstance);
+                mapMarker = L.marker([lat, lng]).addTo(mapInstance)
+                    .bindPopup(label || '收货位置').openPopup();
+            };
+            const locateOnMap = async () => {
+                const full = [newAddress.value.province, newAddress.value.city,
+                              newAddress.value.district, newAddress.value.detailAddress]
+                              .filter(Boolean).join('');
+                if (!full) { alert('请先填写省市区和详细地址'); return; }
+                locating.value = true;
+                try {
+                    const res = await api.get('/geo/geocode?address=' + encodeURIComponent(full));
+                    const data = res.data || {};
+                    if (data.ok) {
+                        initMap(data.lng, data.lat, data.formattedAddress || full);
+                        alert('已在地图上定位到该地址，可拖动/缩放确认！');
+                    } else {
+                        alert('定位失败：' + (data.message || '地址无法解析'));
+                    }
+                } catch (e) {
+                    alert('定位失败，请检查地图服务配置或稍后再试。' + (e.response?.data?.message || e.message || ''));
+                } finally {
+                    locating.value = false;
+                }
+            };
+
             // ====== 购物车核心逻辑（修复类型转换错误） ======
 
             // 修复1：强制将 quantity 转换为数字再累加
@@ -521,10 +567,10 @@
             });
 
             return { cart, addressList, selectedAddressId, showAddressModal, newAddress, currentUser,
-                pasteAddress, parsing, provinces, cities, districts,
+                pasteAddress, parsing, locating, provinces, cities, districts,
                 onProvinceChange, onCityChange,
                 checkedCount, checkedTotalPrice, toggleCheck, changeQuantity, deleteItem,
-                saveAddress, setDefault, deleteAddress, autoLocate, parsePastedAddress, submitOrder, handleLogout };
+                saveAddress, setDefault, deleteAddress, autoLocate, parsePastedAddress, locateOnMap, submitOrder, handleLogout };
         }
     }).mount('#app');
 </script>
