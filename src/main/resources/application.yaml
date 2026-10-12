@@ -59,10 +59,3 @@ doubao:
     api-key: ${DOUBAO_ARK_API_KEY:}
     model: ${DOUBAO_ARK_MODEL:}
 
-# 高德地图地理编码配置（Web 服务 Key）
-# 通过环境变量注入，未配置时地图定位功能返回友好提示，不影响其它功能。
-# 使用方式（Windows PowerShell 临时设置）：
-#   $env:AMAP_KEY="你的高德Web服务Key"
-amap:
-  api-key: ${AMAP_KEY:}
-
