@@ -302,7 +302,8 @@
                 <button class="btn-locate" :disabled="locating" @click="locateOnMap">{{ locating ? '定位中...' : '📍 定位到地图' }}</button>
                 <span style="font-size:12px; color:#a08f8a; margin-left:10px;">在地图上确认收货位置（需配置高德Key）</span>
             </div>
-            <div id="addr-map" style="height:260px; border-radius:10px; margin-bottom:12px; z-index:1;"></div>
+            <div id="addr-map" style="height:260px; border-radius:10px; margin-bottom:4px; z-index:1;"></div>
+            <span style="font-size:12px; color:#a08f8a;">定位后可直接点击地图任意位置，自动反查并回填省市区与详细地址。</span>
             <div class="form-group">
                 <label><input type="checkbox" v-model="newAddress.isDefault"> 设为默认地址</label>
             </div>
@@ -493,6 +494,36 @@
                 }).addTo(mapInstance);
                 mapMarker = L.marker([lat, lng]).addTo(mapInstance)
                     .bindPopup(label || '收货位置').openPopup();
+                // 点击地图任意位置 → 反查地址并回填表单
+                mapInstance.on('click', onMapClick);
+            };
+            // 地图点选：把点击处的经纬度逆地理编码成地址，回填省/市/区/详细地址
+            const onMapClick = async (e) => {
+                const lat = e.latlng.lat, lng = e.latlng.lng;
+                if (!mapMarker) {
+                    mapMarker = L.marker([lat, lng]).addTo(mapInstance);
+                } else {
+                    mapMarker.setLatLng([lat, lng]);
+                }
+                mapMarker.bindPopup('正在获取该位置地址...').openPopup();
+                locating.value = true;
+                try {
+                    const res = await api.get('/geo/regeo?lng=' + lng + '&lat=' + lat);
+                    const d = res.data || {};
+                    if (d.ok) {
+                        const detail = [d.township, d.street, d.number].filter(Boolean).join('')
+                            || (d.formattedAddress || '');
+                        applyRegion(d.province, d.city, d.district, detail);
+                        mapMarker.bindPopup(d.formattedAddress || '已选位置').openPopup();
+                        alert('已回填点击位置的省市区和详细地址，请核对后保存！');
+                    } else {
+                        alert('反查失败：' + (d.message || '该位置无法解析'));
+                    }
+                } catch (err) {
+                    alert('获取位置失败，请检查地图服务配置。' + (err.response?.data?.message || err.message || ''));
+                } finally {
+                    locating.value = false;
+                }
             };
             const locateOnMap = async () => {
                 const full = [newAddress.value.province, newAddress.value.city,
