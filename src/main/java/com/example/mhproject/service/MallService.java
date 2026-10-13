@@ -24,6 +24,7 @@ public class MallService {
     @Autowired private UserRepository userRepo;
     @Autowired private RedisStockService stockService;
     @Autowired private BloomFilterService bloomFilter;
+    @Autowired private NotificationService notificationService;
 
     // ================= 0. 商品浏览 / 搜索 / 详情 =================
 
@@ -214,6 +215,12 @@ public class MallService {
             savedOrder.setItems(orderItems);
 
             cartRepo.deleteAll(checkedItems);
+
+            // 下单成功：自动发送确认地址等站内通知
+            notificationService.notifyUser(userId, savedOrder.getId(), "create",
+                "您的订单 " + savedOrder.getOrderNo() + " 已提交，收货地址：" + savedOrder.getReceiverAddress()
+                + "。请尽快完成付款，我们将在付款后为您安排发货，快递信息可在订单中查看。");
+
             return savedOrder;
         } catch (Exception e) {
             // 数据库扣减/落库失败：事务回滚的同时，把预扣的 Redis 库存补回，保持两边一致
@@ -271,6 +278,10 @@ public class MallService {
         order.setOrderStatus(3); // 已完成
         order.setUpdateTime(LocalDateTime.now());
         orderRepo.save(order);
+
+        // 确认收货：自动发送已签收提示
+        notificationService.notifyUser(userId, orderId, "confirm",
+            "您的订单 " + order.getOrderNo() + " 已确认签收，感谢您的购买！如对商品有任何疑问，欢迎联系在线客服。");
     }
 
     public List<Order> getUserOrders(Long userId) {

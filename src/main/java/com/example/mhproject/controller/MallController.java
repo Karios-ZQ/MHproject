@@ -3,6 +3,7 @@ package com.example.mhproject.controller;
 import com.example.mhproject.entity.*;
 import com.example.mhproject.config.RateLimit;
 import com.example.mhproject.service.MallService;
+import com.example.mhproject.service.NotificationService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,9 @@ public class MallController {
 
     @Autowired
     private MallService mallService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // 核心安全拦截方法：未登录直接抛出异常
     private Long getLoginUserId(HttpSession session) {
@@ -122,6 +126,18 @@ public class MallController {
         Long userId = getLoginUserId(session);
         mallService.confirmReceipt(userId, orderId);
         return "已确认收货";
+    }
+
+    // 站内订单通知（下单确认/签收提示）
+    @GetMapping("/order/messages")
+    public List<com.example.mhproject.entity.OrderMessage> getOrderMessages(HttpSession session) {
+        return notificationService.getUserMessages(getLoginUserId(session));
+    }
+
+    @PostMapping("/order/messages/read")
+    public String markMessagesRead(HttpSession session) {
+        notificationService.markAllRead(getLoginUserId(session));
+        return "ok";
     }
 
     // ================= 售后退款模块（需登录） =================
