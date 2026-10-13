@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,15 +50,30 @@ public class AdminController {
 
     // =================== 广告管理 ===================
     @GetMapping("/ads/list")
-    public List<Advertisement> getAllAds(HttpSession session) {
+    public List<Advertisement> getAllAds(@RequestParam(required = false) String slot, HttpSession session) {
         checkAdmin(session);
-        return adRepo.findAll();
+        if (slot != null && !slot.isBlank()) {
+            return adRepo.findBySlotOrderBySortOrderDesc(slot);
+        }
+        return adRepo.findAllByOrderBySortOrderDesc();
     }
 
     @PostMapping("/ads/save")
     public Advertisement saveAd(@RequestBody Advertisement ad, HttpSession session) {
         checkAdmin(session);
-        if (ad.getId() == null) ad.setCreateTime(LocalDateTime.now());
+        if (ad.getId() == null) {
+            ad.setCreateTime(LocalDateTime.now());
+            if (ad.getClickCount() == null) ad.setClickCount(0);
+            if (ad.getViewCount() == null) ad.setViewCount(0);
+        } else {
+            // 编辑时保留原有的创建时间与统计数据，避免被覆盖
+            Advertisement old = adRepo.findById(ad.getId()).orElse(null);
+            if (old != null) {
+                ad.setCreateTime(old.getCreateTime());
+                ad.setClickCount(old.getClickCount());
+                ad.setViewCount(old.getViewCount());
+            }
+        }
         ad.setUpdateTime(LocalDateTime.now());
         return adRepo.save(ad);
     }
@@ -76,6 +93,37 @@ public class AdminController {
         ad.setUpdateTime(LocalDateTime.now());
         adRepo.save(ad);
         return "状态更新成功";
+    }
+
+    // 广告效果统计报表（点击率等）
+    @GetMapping("/ads/stats")
+    public Map<String, Object> getAdStats(HttpSession session) {
+        checkAdmin(session);
+        List<Advertisement> all = adRepo.findAll();
+        long totalClicks = all.stream().mapToLong(a -> a.getClickCount() == null ? 0 : a.getClickCount()).sum();
+        long totalViews = all.stream().mapToLong(a -> a.getViewCount() == null ? 0 : a.getViewCount()).sum();
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("total", all.size());
+        r.put("enabled", all.stream().filter(a -> a.getStatus() != null && a.getStatus() == 1).count());
+        r.put("totalClicks", totalClicks);
+        r.put("totalViews", totalViews);
+        r.put("overallCtr", totalViews == 0 ? 0 : Math.round(totalClicks * 100.0 / totalViews * 100) / 100.0);
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (Advertisement a : all) {
+            int c = a.getClickCount() == null ? 0 : a.getClickCount();
+            int v = a.getViewCount() == null ? 0 : a.getViewCount();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", a.getId());
+            m.put("title", a.getTitle());
+            m.put("slot", a.getSlot());
+            m.put("status", a.getStatus());
+            m.put("clicks", c);
+            m.put("views", v);
+            m.put("ctr", v == 0 ? 0 : Math.round(c * 100.0 / v * 100) / 100.0);
+            items.add(m);
+        }
+        r.put("items", items);
+        return r;
     }
 
     // =================== 商品管理 ===================
