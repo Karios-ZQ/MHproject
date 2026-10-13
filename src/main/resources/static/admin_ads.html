@@ -221,12 +221,44 @@
                 <textarea v-model="form.description" placeholder="请输入广告简要描述"></textarea>
             </div>
             <div class="form-group">
-                <label>图片URL</label>
-                <input v-model="form.imageUrl" placeholder="请输入图片链接">
+                <label>广告图片（可本地上传或填写URL）</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input v-model="form.imageUrl" placeholder="图片URL，或点击右侧本地上传" style="flex:1">
+                    <label class="btn btn-ai" style="cursor:pointer; flex:none; margin:0;">📁 本地上传
+                        <input type="file" accept="image/*" style="display:none" @change="uploadAdImage">
+                    </label>
+                </div>
+                <img v-if="form.imageUrl" :src="form.imageUrl" style="width:180px;height:90px;object-fit:cover;border-radius:8px;margin-top:8px;border:1px solid #eedad4;" alt="预览">
             </div>
             <div class="form-group">
-                <label>跳转链接</label>
-                <input v-model="form.linkUrl" placeholder="如: /products?type=1">
+                <label>跳转类型</label>
+                <select v-model="linkType">
+                    <option value="category">商品分类</option>
+                    <option value="product">商品详情</option>
+                    <option value="page">商城页面</option>
+                </select>
+            </div>
+            <div class="form-group" v-if="linkType === 'category'">
+                <label>选择分类（点击广告直达该分类）</label>
+                <select v-model="selectedCategoryLink" @change="applyLink">
+                    <option v-for="c in linkCategories" :value="c" :key="c">{{ c }}</option>
+                </select>
+            </div>
+            <div class="form-group" v-if="linkType === 'product'">
+                <label>选择商品（点击广告直达该商品）</label>
+                <select v-model="selectedProduct" @change="applyLink">
+                    <option v-for="p in linkProducts" :value="p.id" :key="p.id">{{ p.name }}</option>
+                </select>
+            </div>
+            <div class="form-group" v-if="linkType === 'page'">
+                <label>选择页面</label>
+                <select v-model="selectedPage" @change="applyLink">
+                    <option v-for="pg in linkPages" :value="pg.v" :key="pg.v">{{ pg.t }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>跳转链接（可手动修改）</label>
+                <input v-model="form.linkUrl" placeholder="如: index.html?category=手办模型">
             </div>
             <div class="form-group">
                 <label>广告位</label>
@@ -327,6 +359,18 @@
             const showAiGenerateModal = ref(false);
             const form = ref({ id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1, slot: 'banner', startTime: '', endTime: '' });
             const stats = ref({ total: 0, enabled: 0, totalViews: 0, totalClicks: 0, overallCtr: 0 });
+            // 跳转链接选择
+            const linkType = ref('category');
+            const linkProducts = ref([]);
+            const linkCategories = ref([]);
+            const selectedProduct = ref('');
+            const selectedCategoryLink = ref('');
+            const selectedPage = ref('index.html');
+            const linkPages = [
+                { v: 'index.html', t: '商城首页' },
+                { v: 'cart.html', t: '购物车' },
+                { v: 'orders.html', t: '我的订单' }
+            ];
 
             const aiGenerateForm = ref({ theme: '', style: '简洁', length: '标准' });
             const aiResults = ref([]);
@@ -346,6 +390,7 @@
                     currentUser.value = res.data;
                     loadAds();
                     loadStats();
+                    loadLinkOptions();
                 } catch (e) {
                     alert('请先登录！');
                     window.location.href = 'login.html';
@@ -366,9 +411,56 @@
                 } catch (e) { /* 报表加载失败不阻塞页面 */ }
             };
 
+            // 图片本地上传
+            const uploadAdImage = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await api.post('/upload/image?prefix=ad-', fd);
+                    form.value.imageUrl = res.data;
+                    alert('图片上传成功');
+                } catch (err) { alert('上传失败: ' + (err.response?.data?.message || err.message)); }
+                e.target.value = '';
+            };
+
+            // 跳转链接：加载商品与分类作为可选目标
+            const loadLinkOptions = async () => {
+                try {
+                    const [resP, resC] = await Promise.all([api.get('/products'), api.get('/categories')]);
+                    linkProducts.value = resP.data;
+                    linkCategories.value = resC.data;
+                    if (!selectedCategoryLink.value && linkCategories.value.length > 0) {
+                        selectedCategoryLink.value = linkCategories.value[0];
+                        applyLink();
+                    }
+                } catch (e) { /* 加载失败不阻塞 */ }
+            };
+
+            // 根据跳转类型生成 linkUrl
+            const applyLink = () => {
+                if (linkType.value === 'product' && selectedProduct.value) {
+                    form.value.linkUrl = 'detail.html?id=' + selectedProduct.value;
+                } else if (linkType.value === 'category' && selectedCategoryLink.value) {
+                    form.value.linkUrl = 'index.html?category=' + encodeURIComponent(selectedCategoryLink.value);
+                } else if (linkType.value === 'page') {
+                    form.value.linkUrl = selectedPage.value;
+                }
+            };
+
             // ================ CRUD 操作 ================
             const openAddModal = () => {
                 form.value = { id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1, slot: 'banner', startTime: '', endTime: '' };
+                linkType.value = 'category';
+                selectedProduct.value = '';
+                selectedPage.value = 'index.html';
+                if (linkCategories.value.length > 0) {
+                    selectedCategoryLink.value = linkCategories.value[0];
+                    applyLink();
+                } else {
+                    selectedCategoryLink.value = '';
+                }
                 showModal.value = true;
             };
 
@@ -488,7 +580,9 @@
                 showAiGenerateModal, aiGenerateForm, aiResults, aiLoading,
                 openAddModal, openEditModal, saveAd, toggleAd, deleteAd,
                 doAiGenerate, pickAiResult, doSafetyCheck, doPolish, handleLogout,
-                slotName, ctrOf, fmtTime
+                slotName, ctrOf, fmtTime,
+                uploadAdImage, linkType, linkProducts, linkCategories, linkPages,
+                selectedProduct, selectedCategoryLink, selectedPage, applyLink
             };
         }
     }).mount('#app');
