@@ -539,7 +539,11 @@
                     zoneAds.value.forEach(a => recordView(a.id));
                     if (popupAd.value) {
                         recordView(popupAd.value.id);
-                        showPopup.value = true;
+                        // 弹窗广告：本次会话内只弹一次（叉掉后从其他页面回来不再弹出）
+                        if (!sessionStorage.getItem('popupAdClosed')) {
+                            showPopup.value = true;
+                            sessionStorage.setItem('popupAdClosed', '1');
+                        }
                     }
                     startBannerAutoPlay();
                 } catch (e) { console.error(e); }
