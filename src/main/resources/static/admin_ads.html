@@ -50,6 +50,14 @@
         .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
         .page-sub { color:var(--ink-soft); font-size:14px; margin: 6px 0 20px; letter-spacing:1px; }
 
+        .stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:22px; }
+        .stat-card { background:rgba(255,255,255,.92); border:1px solid rgba(233,214,208,.8); border-radius:16px; padding:18px 20px; text-align:center; box-shadow:var(--shadow-sm); }
+        .stat-card .n { font-family:"Noto Serif SC","STSong",serif; font-size:clamp(24px,3vw,32px); font-weight:700; color:var(--red-700); }
+        .stat-card .l { color:var(--ink-soft); font-size:13px; margin-top:6px; letter-spacing:1px; }
+        .slot-tag { display:inline-block; font-size:12px; padding:3px 10px; border-radius:999px; background:var(--red-50); color:var(--red-700); border:1px solid var(--red-100); }
+        .ctr-strong { color:var(--red-600); font-weight:700; }
+        .sched { font-size:12px; color:var(--ink-soft); }
+
         .card-panel { background:rgba(255,255,255,.92); backdrop-filter:blur(12px); border:1px solid rgba(233,214,208,.8); border-radius:20px; padding:24px; box-shadow:var(--shadow-md); overflow-x:auto; }
         .btn-add { color:#fff; border:none; padding:12px 26px; font-size:15px; letter-spacing:1px; border-radius:12px; cursor:pointer; margin-bottom:16px; position:relative; overflow:hidden; background:linear-gradient(135deg,var(--red-700),var(--red-500)); box-shadow:0 8px 20px rgba(176,30,62,.32); transition:all .28s var(--ease-spring); }
         .btn-add::after { content:''; position:absolute; top:0; left:-80%; width:50%; height:100%; background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent); transform:skewX(-20deg); transition:left .55s ease; }
@@ -138,17 +146,27 @@
         <div class="page-title"><span class="bar"></span><h2>轮播广告管理</h2></div>
         <div class="page-sub">AI 智能助手可为你生成文案、安全检测与润色。</div>
 
+        <!-- 效果分析报表 -->
+        <div class="stats-grid">
+            <div class="stat-card"><div class="n">{{ stats.total }}</div><div class="l">广告总数</div></div>
+            <div class="stat-card"><div class="n">{{ stats.enabled }}</div><div class="l">启用中</div></div>
+            <div class="stat-card"><div class="n">{{ stats.totalViews }}</div><div class="l">总曝光</div></div>
+            <div class="stat-card"><div class="n">{{ stats.totalClicks }}</div><div class="l">总点击</div></div>
+            <div class="stat-card"><div class="n">{{ stats.overallCtr }}%</div><div class="l">整体点击率</div></div>
+        </div>
+
         <div class="card-panel">
             <button class="btn-add" @click="openAddModal">+ 新增广告</button>
             <table>
                 <thead>
                 <tr>
-                    <th>ID</th><th>广告图片</th><th>标题 / 描述</th><th>跳转链接</th><th>排序</th><th>状态</th><th>操作</th>
+                    <th>ID</th><th>广告位</th><th>广告图片</th><th>标题 / 描述</th><th>跳转链接</th><th>排序</th><th>曝光</th><th>点击</th><th>点击率</th><th>排期</th><th>状态</th><th>操作</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr v-for="ad in ads" :key="ad.id">
                     <td>{{ ad.id }}</td>
+                    <td><span class="slot-tag">{{ slotName(ad.slot) }}</span></td>
                     <td><img class="ad-img" :src="ad.imageUrl" alt="广告"></td>
                     <td>
                         <div class="ad-title">{{ ad.title }}</div>
@@ -156,6 +174,16 @@
                     </td>
                     <td style="font-size:12px;">{{ ad.linkUrl }}</td>
                     <td>{{ ad.sortOrder }}</td>
+                    <td>{{ ad.viewCount || 0 }}</td>
+                    <td>{{ ad.clickCount || 0 }}</td>
+                    <td class="ctr-strong">{{ ctrOf(ad) }}%</td>
+                    <td>
+                        <div class="sched" v-if="ad.startTime || ad.endTime">
+                            <div v-if="ad.startTime">{{ fmtTime(ad.startTime) }} 起</div>
+                            <div v-if="ad.endTime">{{ fmtTime(ad.endTime) }} 止</div>
+                        </div>
+                        <span class="sched" v-else>不限</span>
+                    </td>
                     <td>
                         <span :class="ad.status === 1 ? 'status-on' : 'status-off'">
                             {{ ad.status === 1 ? '启用中' : '已禁用' }}
@@ -201,8 +229,24 @@
                 <input v-model="form.linkUrl" placeholder="如: /products?type=1">
             </div>
             <div class="form-group">
+                <label>广告位</label>
+                <select v-model="form.slot">
+                    <option value="banner">轮播 Banner</option>
+                    <option value="popup">弹窗</option>
+                    <option value="zone">首页专区</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>排序权重（越大越靠前）</label>
                 <input type="number" v-model="form.sortOrder">
+            </div>
+            <div class="form-group">
+                <label>排期开始时间（到点自动启用）</label>
+                <input type="datetime-local" v-model="form.startTime">
+            </div>
+            <div class="form-group">
+                <label>排期结束时间（到点自动禁用）</label>
+                <input type="datetime-local" v-model="form.endTime">
             </div>
             <div class="form-group">
                 <label>状态</label>
@@ -281,7 +325,8 @@
             const currentUser = ref(null);
             const showModal = ref(false);
             const showAiGenerateModal = ref(false);
-            const form = ref({ id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1 });
+            const form = ref({ id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1, slot: 'banner', startTime: '', endTime: '' });
+            const stats = ref({ total: 0, enabled: 0, totalViews: 0, totalClicks: 0, overallCtr: 0 });
 
             const aiGenerateForm = ref({ theme: '', style: '简洁', length: '标准' });
             const aiResults = ref([]);
@@ -300,6 +345,7 @@
                     }
                     currentUser.value = res.data;
                     loadAds();
+                    loadStats();
                 } catch (e) {
                     alert('请先登录！');
                     window.location.href = 'login.html';
@@ -313,23 +359,32 @@
                 } catch (e) { alert('加载广告失败: ' + (e.response?.data?.message || e.message)); }
             };
 
+            const loadStats = async () => {
+                try {
+                    const res = await api.get('/admin/ads/stats');
+                    stats.value = res.data;
+                } catch (e) { /* 报表加载失败不阻塞页面 */ }
+            };
+
             // ================ CRUD 操作 ================
             const openAddModal = () => {
-                form.value = { id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1 };
+                form.value = { id: null, title: '', description: '', imageUrl: '', linkUrl: '', sortOrder: 0, status: 1, slot: 'banner', startTime: '', endTime: '' };
                 showModal.value = true;
             };
 
             const openEditModal = (ad) => {
-                form.value = { ...ad };
+                form.value = { ...ad, startTime: fromLocal(ad.startTime), endTime: fromLocal(ad.endTime) };
                 showModal.value = true;
             };
 
             const saveAd = async () => {
                 if (!form.value.title || !form.value.imageUrl) { alert('请填写标题和图片链接'); return; }
-                await api.post('/admin/ads/save', form.value);
+                const payload = { ...form.value, startTime: toLocal(form.value.startTime), endTime: toLocal(form.value.endTime) };
+                await api.post('/admin/ads/save', payload);
                 alert('保存成功');
                 showModal.value = false;
                 loadAds();
+                loadStats();
             };
 
             const toggleAd = async (id) => {
@@ -412,13 +467,28 @@
                 window.location.href = 'login.html';
             };
 
+            // 时间转换：datetime-local 值 → 后端 LocalDateTime（补齐秒）
+            const toLocal = (s) => s ? (s.length === 16 ? s + ':00' : s) : null;
+            // 后端 LocalDateTime → datetime-local 值
+            const fromLocal = (s) => s ? s.slice(0, 16) : '';
+            // 广告位中文名
+            const slotName = (s) => ({ banner: '轮播', popup: '弹窗', zone: '专区' }[s] || s || '-');
+            // 点击率（百分比，保留1位）
+            const ctrOf = (ad) => {
+                const v = ad.viewCount || 0, c = ad.clickCount || 0;
+                return v === 0 ? 0 : Math.round(c * 1000 / v) / 10;
+            };
+            // 时间展示：去掉秒
+            const fmtTime = (s) => s ? s.slice(0, 16).replace('T', ' ') : '';
+
             onMounted(checkAdmin);
 
             return {
-                ads, currentUser, showModal, form,
+                ads, currentUser, showModal, form, stats,
                 showAiGenerateModal, aiGenerateForm, aiResults, aiLoading,
                 openAddModal, openEditModal, saveAd, toggleAd, deleteAd,
-                doAiGenerate, pickAiResult, doSafetyCheck, doPolish, handleLogout
+                doAiGenerate, pickAiResult, doSafetyCheck, doPolish, handleLogout,
+                slotName, ctrOf, fmtTime
             };
         }
     }).mount('#app');
