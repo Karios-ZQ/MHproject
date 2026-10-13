@@ -521,8 +521,12 @@
             };
 
             const loadData = async () => {
+                // 支持 ?category= 从广告跳转直达分类
+                const urlCat = new URLSearchParams(window.location.search).get('category');
+                if (urlCat) selectedCategory.value = urlCat;
                 try {
-                    const [resP, resA, resC] = await Promise.all([api.get('/products'), api.get('/ads'), api.get('/categories')]);
+                    const qs = selectedCategory.value ? '?category=' + encodeURIComponent(selectedCategory.value) : '';
+                    const [resP, resA, resC] = await Promise.all([api.get('/products' + qs), api.get('/ads'), api.get('/categories')]);
                     products.value = resP.data;
                     ads.value = resA.data;
                     categories.value = resC.data;
