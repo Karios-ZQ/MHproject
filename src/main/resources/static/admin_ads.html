@@ -345,10 +345,16 @@
 <script>
     const { createApp, ref, onMounted } = Vue;
 
-    // 清理 AI 返回中可能夹带的 markdown 代码块标记
+    // 清理 AI 返回中可能夹带的 markdown 标记与解释文字，提取出真正的 JSON
     const cleanJSON = (str) => {
         if (!str) return str;
-        return str.replace(/```json/g, '').replace(/```/g, '').trim();
+        let s = String(str).replace(/```json/g, '').replace(/```/g, '').trim();
+        // 若 AI 在 JSON 前后夹带了解释文字，直接截取首尾括号之间的内容
+        const arrStart = s.indexOf('[');
+        const objStart = s.indexOf('{');
+        if (arrStart >= 0) { s = s.substring(arrStart, s.lastIndexOf(']') + 1); }
+        else if (objStart >= 0) { s = s.substring(objStart, s.lastIndexOf('}') + 1); }
+        return s;
     };
 
     createApp({
