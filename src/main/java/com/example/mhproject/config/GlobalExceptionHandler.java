@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,6 +27,16 @@ public class GlobalExceptionHandler {
         body.put("code", 400);
         body.put("message", e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // 静态资源（如 favicon.ico）不存在时按 404 返回，不再当作 500 系统异常污染日志
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResource(NoResourceFoundException e) {
+        log.debug("静态资源不存在: {}", e.getResourcePath());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("code", 404);
+        body.put("message", "资源不存在");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
     @ExceptionHandler(Exception.class)
