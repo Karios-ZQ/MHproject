@@ -120,6 +120,40 @@
         .btn-buy:hover { transform:translateY(-2px); filter:brightness(1.08); }
 
         .empty { text-align:center; padding: 90px; color: var(--ink-soft); background:rgba(255,255,255,.85); border-radius:20px; border:1px dashed rgba(200,37,69,.3); }
+
+        /* ===== AI 客服悬浮球 ===== */
+        .ai-ball {
+            position: fixed; bottom: 32px; right: 32px; width: 62px; height: 62px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--red-700), var(--red-500));
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; cursor: pointer; z-index: 999;
+            border: 1px solid rgba(240,212,138,0.5);
+            animation: pulse 2.6s infinite; transition: transform .3s var(--ease-spring);
+        }
+        .ai-ball::before { content:''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid rgba(212,175,55,0.35); animation: ripple 2.6s infinite; }
+        @keyframes pulse { 0%,100% { box-shadow: 0 8px 26px rgba(176,30,62,0.5); } 50% { box-shadow: 0 8px 44px rgba(212,175,55,0.72); } }
+        @keyframes ripple { 0% { transform: scale(.85); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+        .ai-ball:hover { transform: scale(1.12) rotate(6deg); }
+        .ai-float {
+            position: fixed; bottom: 32px; right: 32px; width: 386px; z-index: 1000;
+            background: #fff; border-radius: 18px; overflow: hidden;
+            display: flex; flex-direction: column;
+            border: 1px solid rgba(233,214,208,0.7); box-shadow: var(--shadow-lg);
+            animation: slideUp .32s var(--ease-spring);
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+        .ai-header { background: linear-gradient(120deg, var(--red-900), var(--red-700), var(--red-500)); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; letter-spacing: 1px; border-bottom: 1px solid rgba(240,212,138,0.4); }
+        .ai-header .close-btn { background: rgba(255,255,255,0.16); color: #fff; border: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; transition: .2s; }
+        .ai-header .close-btn:hover { background: rgba(255,255,255,0.34); }
+        .ai-body { height: 310px; padding: 14px; overflow-y: auto; font-size: 13px; display: flex; flex-direction: column; gap: 10px; background: #fdf9f7; }
+        .msg-user { align-self: flex-end; background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff; padding: 9px 13px; border-radius: 14px 14px 0 14px; max-width: 80%; }
+        .msg-ai { align-self: flex-start; background: #fff; color: var(--ink); padding: 9px 13px; border-radius: 14px 14px 14px 0; max-width: 80%; box-shadow: 0 4px 12px rgba(74,10,24,.06); border: 1px solid #f0ded9; }
+        .ai-input-area { display: flex; border-top: 1px solid #f0ded9; padding: 11px; background: #fff; }
+        .ai-input-area input { flex: 1; border: 1px solid #e7d2cc; padding: 9px 14px; border-radius: 999px; margin-right: 9px; outline: none; font-family: inherit; }
+        .ai-input-area input:focus { border-color: var(--red-500); }
+        .ai-input-area button { background: linear-gradient(135deg, var(--red-700), var(--red-500)); color: #fff; border: none; padding: 9px 20px; border-radius: 999px; cursor: pointer; }
+        @media (max-width: 640px) { .ai-float { width: calc(100vw - 28px); right: 14px; left: 14px; } }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
     </style>
 </head>
@@ -183,6 +217,20 @@
         </div>
         <div class="empty" v-else-if="!loading">商品不存在或已被下架</div>
     </div>
+
+    <!-- AI 客服悬浮球 -->
+    <div class="ai-ball" v-if="!showAi" @click="showAi = true" title="AI 助手">🤖</div>
+    <div class="ai-float" v-if="showAi">
+        <div class="ai-header"><span>🤖 智能客服 · 物语文创</span><button class="close-btn" @click="showAi = false" title="收起">✕</button></div>
+        <div class="ai-body" id="aiBody">
+            <div class="msg-ai">你好，我是商城在线客服～可以帮你解答快递、商品、售后等问题，请问有什么可以帮你？</div>
+            <div v-for="(msg, idx) in chatHistory" :key="idx" :class="msg.role === 'user' ? 'msg-user' : 'msg-ai'">{{ msg.content }}</div>
+        </div>
+        <div class="ai-input-area">
+            <input v-model="aiInput" @keyup.enter="sendAiMsg" placeholder="输入内容...">
+            <button @click="sendAiMsg">发送</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -193,6 +241,9 @@
             const currentUser = ref(null);
             const qty = ref(1);
             const loading = ref(true);
+            const aiInput = ref('');
+            const chatHistory = ref([]);
+            const showAi = ref(false);
             const api = axios.create({ baseURL: '/api', withCredentials: true });
 
             const productId = new URLSearchParams(window.location.search).get('id');
@@ -236,9 +287,34 @@
                 } catch (e) { alert(e.response?.data?.message || '操作失败'); }
             };
 
+            // ================ AI 客服（SSE 流式打字机） ================
+            const sendAiMsg = () => {
+                if (!aiInput.value.trim()) return;
+                pushAi(aiInput.value);
+                aiInput.value = '';
+            };
+            const pushAi = (msg) => {
+                chatHistory.value.push({ role: 'user', content: msg });
+                chatHistory.value.push({ role: 'ai', content: '' });
+                const aiIndex = chatHistory.value.length - 1;
+                setTimeout(() => { const el = document.getElementById('aiBody'); if (el) el.scrollTop = el.scrollHeight; }, 100);
+                const es = new EventSource(`/api/ai/assistant/stream?message=${encodeURIComponent(msg)}`);
+                es.onmessage = (event) => {
+                    if (event.data === '[DONE]') { es.close(); return; }
+                    chatHistory.value[aiIndex].content += event.data;
+                    setTimeout(() => { const el = document.getElementById('aiBody'); if (el) el.scrollTop = el.scrollHeight; }, 50);
+                };
+                es.onerror = () => {
+                    es.close();
+                    if (!chatHistory.value[aiIndex].content) {
+                        chatHistory.value[aiIndex].content = 'AI 助手暂时有点忙，请稍后再试～';
+                    }
+                };
+            };
+
             onMounted(() => { checkLogin(); loadProduct(); });
 
-            return { product, currentUser, qty, loading, addToCart, buyNow };
+            return { product, currentUser, qty, loading, aiInput, chatHistory, showAi, sendAiMsg, addToCart, buyNow };
         }
     }).mount('#app');
 </script>
