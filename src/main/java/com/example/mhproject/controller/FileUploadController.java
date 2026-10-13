@@ -36,7 +36,9 @@ public class FileUploadController {
      * 本地上传图片（通过 FileStorageService 抽象层，未来可无缝切换到 OSS/MinIO）
      */
     @PostMapping("/image")
-    public String uploadImage(@RequestParam("file") MultipartFile file, HttpSession session) {
+    public String uploadImage(@RequestParam("file") MultipartFile file,
+                              @RequestParam(required = false, defaultValue = "product-") String prefix,
+                              HttpSession session) {
         checkAdmin(session);
         if (file.isEmpty()) throw new RuntimeException("请选择文件");
 
@@ -49,7 +51,7 @@ public class FileUploadController {
         }
 
         try {
-            return fileStorage.store(file, "product-");
+            return fileStorage.store(file, prefix);
         } catch (Exception e) {
             throw new RuntimeException("上传失败: " + e.getMessage());
         }
