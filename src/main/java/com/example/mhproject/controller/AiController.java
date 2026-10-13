@@ -38,6 +38,15 @@ public class AiController {
 
     private static final ExecutorService SSE_POOL = Executors.newCachedThreadPool();
 
+    // 客服定位：回答快递/商品/售后等通用问题，个人订单信息引导去订单页
+    private static final String CUSTOMER_SERVICE_SYSTEM =
+            "你是「物语文创」国潮文创商城的在线客服。你可以回答快递、商品、售后等通用问题："
+            + "快递：本店与多家快递合作，付款后我们会尽快安排发货，具体物流进度请在“我的订单”中查看；"
+            + "商品：本店主营国潮、文创类商品，均为正品，材质与细节以商品详情页为准；"
+            + "售后：商品支持七天无理由退换（保持完好、不影响二次销售），退款请在“我的订单”中申请。"
+            + "若用户询问个人订单、收货地址、物流进度等隐私信息，请引导其到“我的订单”页面查看，不要编造数据。"
+            + "回答简洁友好，控制在100字以内。";
+
     // 功能4：AI 智能客服导购（RAG 对话，SSE 流式打字机效果）
     @GetMapping(value = "/assistant/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter assistantStream(@RequestParam String message) {
@@ -59,8 +68,8 @@ public class AiController {
                 conn.setReadTimeout(25000);
 
                 String body = String.format(
-                        "{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"%s\"}],\"stream\":true,\"temperature\":0.7}",
-                        escapeJson(prompt));
+                        "{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"system\",\"content\":\"%s\"},{\"role\":\"user\",\"content\":\"%s\"}],\"stream\":true,\"temperature\":0.7}",
+                        escapeJson(CUSTOMER_SERVICE_SYSTEM), escapeJson(prompt));
                 try (OutputStream os = conn.getOutputStream()) {
                     os.write(body.getBytes(StandardCharsets.UTF_8));
                 }
@@ -94,10 +103,9 @@ public class AiController {
         return emitter;
     }
 
-    /** 构建带商品知识库的导购 prompt（与 AiChatService 逻辑一致） */
+    /** 构建客服问答 prompt（通用问题，非针对个人） */
     private String buildAssistantPrompt(String userMessage) {
-        // 简化版：直接用 AiChatService 的 prompt 构建逻辑
-        return "你是一个热情专业的电商商城导购客服。请基于商品信息回答用户问题，回答简洁友好（100字以内）。\n用户问题：" + userMessage;
+        return "用户问题：" + userMessage;
     }
 
     /** 从 SSE JSON 行中提取 delta.content */

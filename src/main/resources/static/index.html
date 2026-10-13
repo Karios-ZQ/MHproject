@@ -478,9 +478,9 @@
     <!-- AI 悬浮球 -->
     <div class="ai-ball" v-if="!showAi" @click="showAi = true" title="AI 助手">🤖</div>
     <div class="ai-float" v-if="showAi">
-        <div class="ai-header"><span>🤖 DeepSeek AI 助手</span><button class="close-btn" @click="showAi = false" title="收起">✕</button></div>
+        <div class="ai-header"><span>🤖 智能客服 · 物语文创</span><button class="close-btn" @click="showAi = false" title="收起">✕</button></div>
         <div class="ai-body" id="aiBody">
-            <div class="msg-ai">你好！我是AI助手，可以帮你写广告语、解答售后问题。</div>
+            <div class="msg-ai">你好，我是商城在线客服～可以帮你解答快递、商品、售后等问题，请问有什么可以帮你？</div>
             <div v-for="(msg, idx) in chatHistory" :key="idx" :class="msg.role === 'user' ? 'msg-user' : 'msg-ai'">{{ msg.content }}</div>
         </div>
         <div class="ai-input-area">
