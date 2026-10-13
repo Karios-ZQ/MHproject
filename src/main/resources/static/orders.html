@@ -50,6 +50,19 @@
         .page-title .bar { width:32px; height:3px; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--red-500)); position:relative; }
         .page-title .bar::after { content:''; display:block; width:9px; height:3px; background:var(--gold); margin-top:5px; }
 
+        /* 订单通知 */
+        .msg-panel { background:rgba(255,255,255,.95); border:1px solid rgba(233,214,208,.8); border-radius:14px; margin-bottom:22px; box-shadow:var(--shadow-sm); overflow:hidden; }
+        .msg-panel-head { display:flex; justify-content:space-between; align-items:center; padding:13px 18px; background:linear-gradient(120deg,var(--red-50),#fff); color:var(--red-800); font-weight:600; cursor:pointer; }
+        .msg-toggle { border:none; background:var(--red-100); color:var(--red-700); padding:5px 14px; border-radius:999px; cursor:pointer; font-size:12px; }
+        .msg-list { max-height:260px; overflow-y:auto; }
+        .msg-item { display:flex; gap:12px; align-items:flex-start; padding:12px 18px; border-top:1px solid #f2e3de; }
+        .msg-item.unread { background:#fff6f4; }
+        .msg-type { flex:none; font-size:12px; padding:3px 10px; border-radius:999px; color:#fff; }
+        .msg-type.create { background:var(--gold); color:#4a2c08; }
+        .msg-type.confirm { background:var(--red-600); }
+        .msg-content { flex:1; font-size:13px; color:var(--ink); line-height:1.7; }
+        .msg-time { flex:none; font-size:12px; color:var(--ink-soft); }
+
         .empty { background:rgba(255,255,255,.9); padding:70px; text-align:center; border-radius:20px; color:var(--ink-soft); border:1px dashed rgba(200,37,69,.3); }
         .empty .big { font-size:52px; margin-bottom:14px; }
 
@@ -137,6 +150,22 @@
 
     <div class="container">
         <div class="page-title"><span class="bar"></span><h2>我的订单</h2></div>
+
+        <!-- 站内订单通知 -->
+        <div class="msg-panel" v-if="messages.length > 0">
+            <div class="msg-panel-head" @click="showMessages = !showMessages">
+                <span>📬 订单通知<span v-if="unreadCount > 0" style="color:var(--red-600); margin-left:6px;">（{{ unreadCount }} 条未读）</span></span>
+                <button class="msg-toggle" @click.stop="showMessages = !showMessages">{{ showMessages ? '收起' : '展开' }}</button>
+            </div>
+            <div class="msg-list" v-if="showMessages">
+                <div class="msg-item" :class="{ unread: msg.readFlag === 0 }" v-for="msg in messages" :key="msg.id">
+                    <span class="msg-type" :class="msg.type">{{ msg.type === 'confirm' ? '签收' : '下单' }}</span>
+                    <div class="msg-content">{{ msg.content }}</div>
+                    <div class="msg-time">{{ fmtTime(msg.createTime) }}</div>
+                </div>
+            </div>
+        </div>
+
         <div class="empty" v-if="orders.length === 0"><div class="big">📦</div>暂无订单</div>
 
         <div class="order-card" v-for="(o, oi) in orders" :key="o.id" :style="{ animationDelay: (oi % 6) * 0.05 + 's' }">
@@ -196,6 +225,9 @@
             const showRefund = ref(false);
             const refundReason = ref('');
             const currentRefundOrderId = ref(null);
+            const messages = ref([]);
+            const showMessages = ref(false);
+            const unreadCount = ref(0);
             const progressSteps = ['下单', '付款', '发货', '收货'];
             const api = axios.create({ baseURL: '/api', withCredentials: true });
 
@@ -215,6 +247,17 @@
                     window.location.href = 'login.html';
                 }
             };
+
+            // 站内订单通知
+            const loadMessages = async () => {
+                try {
+                    const res = await api.get('/order/messages');
+                    messages.value = res.data;
+                    unreadCount.value = messages.value.filter(m => m.readFlag === 0).length;
+                    if (unreadCount.value > 0) { api.post('/order/messages/read'); }
+                } catch (e) { /* 通知加载失败不阻塞 */ }
+            };
+            const fmtTime = (s) => s ? s.slice(0, 16).replace('T', ' ') : '';
 
             const stepIndex = (status) => {
                 return { 0: 0, 1: 1, 2: 2, 3: 3 }[status] ?? 0;
@@ -259,8 +302,8 @@
                 window.location.href = 'login.html';
             };
 
-            onMounted(() => { checkLogin(); loadOrders(); });
-            return { orders, currentUser, showRefund, refundReason, openRefund, submitRefund, payOrder, cancelOrder, confirmReceipt, getStatusText, statusColor, progressSteps, stepIndex, handleLogout };
+            onMounted(() => { checkLogin(); loadOrders(); loadMessages(); });
+            return { orders, currentUser, showRefund, refundReason, openRefund, submitRefund, payOrder, cancelOrder, confirmReceipt, getStatusText, statusColor, progressSteps, stepIndex, handleLogout, messages, showMessages, unreadCount, fmtTime };
         }
     }).mount('#app');
 </script>
