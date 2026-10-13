@@ -198,6 +198,26 @@
         .banner-dot { width: 9px; height: 9px; border-radius: 50%; border: none; cursor: pointer; padding: 0; background: rgba(255,255,255,0.5); transition: all .3s var(--ease-spring); }
         .banner-dot.active { background: linear-gradient(90deg, var(--gold-light), var(--gold)); width: 26px; border-radius: 6px; transform: scale(1.1); }
 
+        /* 弹窗广告 */
+        .popup-mask { position: fixed; inset: 0; background: rgba(31,3,11,.5); backdrop-filter: blur(4px); z-index: 1200; display: flex; align-items: center; justify-content: center; animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .popup-box { background: #fff; border-radius: var(--radius-lg); overflow: hidden; width: min(420px, 92vw); box-shadow: var(--shadow-lg); animation: modalUp .35s var(--ease-spring); position: relative; cursor: pointer; }
+        @keyframes modalUp { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+        .popup-box img { width: 100%; display: block; }
+        .popup-close { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; background: rgba(0,0,0,.4); color: #fff; border: none; font-size: 14px; cursor: pointer; z-index: 2; line-height: 1; }
+        .popup-box .popup-text { padding: 16px 20px; }
+        .popup-box .popup-title { font-family:"Noto Serif SC","STSong",serif; color: var(--red-800); font-size: 18px; margin-bottom: 6px; }
+        .popup-box .popup-desc { color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+
+        /* 专区广告 */
+        .zone-strip { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px; margin-bottom: 30px; scrollbar-width: thin; }
+        .zone-card { flex: 0 0 240px; background: #fff; border-radius: var(--radius-md); overflow: hidden; cursor: pointer; box-shadow: var(--shadow-sm); border: 1px solid rgba(233,214,208,0.7); transition: transform .35s var(--ease-spring), box-shadow .35s; }
+        .zone-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); }
+        .zone-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+        .zone-card .zone-body { padding: 12px 14px; }
+        .zone-card .zone-title { color: var(--red-800); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .zone-card .zone-desc { color: var(--ink-soft); font-size: 12px; }
+
         /* ===== 工具栏：毛玻璃胶囊 ===== */
         .toolbar {
             display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
@@ -376,9 +396,9 @@
 
     <div class="container">
         <!-- 轮播广告 -->
-        <div class="banner" v-if="ads.length > 0">
+        <div class="banner" v-if="bannerAds.length > 0">
             <div class="banner-track" :style="{ transform: 'translateX(-' + (bannerIndex * 100) + '%)' }">
-                <div class="banner-slide" v-for="(ad, i) in ads" :key="ad.id">
+                <div class="banner-slide" v-for="(ad, i) in bannerAds" :key="ad.id" @click="adGo(ad)">
                     <img :src="ad.imageUrl" :alt="ad.title" @error="handleImgError">
                     <div class="banner-text">
                         <div class="banner-title" v-if="ad.title">{{ ad.title }}</div>
@@ -390,7 +410,18 @@
             <button class="banner-arrow right" @click="nextBanner" aria-label="下一张">›</button>
             <div class="banner-dots">
                 <button class="banner-dot" :class="{ active: i === bannerIndex }"
-                        v-for="(ad, i) in ads" :key="'d' + ad.id" @click="goBanner(i)"></button>
+                        v-for="(ad, i) in bannerAds" :key="'d' + ad.id" @click="goBanner(i)"></button>
+            </div>
+        </div>
+
+        <!-- 专区广告 -->
+        <div class="zone-strip" v-if="zoneAds.length > 0">
+            <div class="zone-card" v-for="ad in zoneAds" :key="ad.id" @click="adGo(ad)">
+                <img :src="ad.imageUrl" :alt="ad.title" @error="handleImgError">
+                <div class="zone-body">
+                    <div class="zone-title" v-if="ad.title">{{ ad.title }}</div>
+                    <div class="zone-desc" v-if="ad.description">{{ ad.description }}</div>
+                </div>
             </div>
         </div>
 
@@ -432,6 +463,18 @@
         <div class="empty" v-else>没有找到相关商品，换个关键词试试吧~</div>
     </div>
 
+    <!-- 弹窗广告 -->
+    <div class="popup-mask" v-if="popupAd && showPopup" @click="closePopup">
+        <div class="popup-box" @click.stop="adGo(popupAd)">
+            <button class="popup-close" @click.stop="closePopup">✕</button>
+            <img :src="popupAd.imageUrl" :alt="popupAd.title" @error="handleImgError">
+            <div class="popup-text" v-if="popupAd.title || popupAd.description">
+                <div class="popup-title" v-if="popupAd.title">{{ popupAd.title }}</div>
+                <div class="popup-desc" v-if="popupAd.description">{{ popupAd.description }}</div>
+            </div>
+        </div>
+    </div>
+
     <!-- AI 悬浮球 -->
     <div class="ai-ball" v-if="!showAi" @click="showAi = true" title="AI 助手">🤖</div>
     <div class="ai-float" v-if="showAi">
@@ -454,6 +497,10 @@
             const currentUser = ref(null);
             const products = ref([]);
             const ads = ref([]);
+            const bannerAds = ref([]);
+            const zoneAds = ref([]);
+            const popupAd = ref(null);
+            const showPopup = ref(false);
             const categories = ref([]);
             const keyword = ref('');
             const selectedCategory = ref('');
@@ -479,9 +526,29 @@
                     products.value = resP.data;
                     ads.value = resA.data;
                     categories.value = resC.data;
+                    // 按广告位分组
+                    bannerAds.value = ads.value.filter(a => a.slot !== 'popup' && a.slot !== 'zone');
+                    zoneAds.value = ads.value.filter(a => a.slot === 'zone');
+                    popupAd.value = ads.value.find(a => a.slot === 'popup') || null;
+                    // 记录各广告位曝光
+                    recordView(bannerAds.value[0] && bannerAds.value[0].id);
+                    zoneAds.value.forEach(a => recordView(a.id));
+                    if (popupAd.value) {
+                        recordView(popupAd.value.id);
+                        showPopup.value = true;
+                    }
                     startBannerAutoPlay();
                 } catch (e) { console.error(e); }
             };
+
+            // ================ 广告统计 ================
+            const recordView = (id) => { if (id) api.post(`/ads/view?id=${id}`); };
+            const recordClick = (id) => { if (id) api.post(`/ads/click?id=${id}`); };
+            const adGo = (ad) => {
+                recordClick(ad.id);
+                if (ad.linkUrl) { window.location.href = ad.linkUrl; }
+            };
+            const closePopup = () => { showPopup.value = false; };
 
             const loadProducts = async () => {
                 try {
@@ -517,14 +584,16 @@
 
             // ================ 轮播控制 ================
             const goBanner = (i) => {
-                const n = ads.value.length;
+                const n = bannerAds.value.length;
+                if (n === 0) return;
                 bannerIndex.value = (i + n) % n;
+                recordView(bannerAds.value[bannerIndex.value] && bannerAds.value[bannerIndex.value].id);
             };
             const nextBanner = () => goBanner(bannerIndex.value + 1);
             const prevBanner = () => goBanner(bannerIndex.value - 1);
             const startBannerAutoPlay = () => {
                 stopBannerAutoPlay();
-                if (ads.value.length > 1) {
+                if (bannerAds.value.length > 1) {
                     bannerTimer = setInterval(() => { nextBanner(); }, 4000);
                 }
             };
@@ -561,7 +630,7 @@
             onMounted(() => { checkLogin(); loadData(); });
             onUnmounted(() => { stopBannerAutoPlay(); });
 
-            return { currentUser, products, ads, categories, keyword, selectedCategory, sort, aiInput, chatHistory, showAi, bannerIndex, addToCart, handleLogout, handleImgError, sendAiMsg, loadProducts, selectCategory, goDetail, goBanner, nextBanner, prevBanner };
+            return { currentUser, products, ads, bannerAds, zoneAds, popupAd, showPopup, categories, keyword, selectedCategory, sort, aiInput, chatHistory, showAi, bannerIndex, addToCart, handleLogout, handleImgError, sendAiMsg, loadProducts, selectCategory, goDetail, goBanner, nextBanner, prevBanner, adGo, closePopup };
         }
     }).mount('#app');
 </script>
